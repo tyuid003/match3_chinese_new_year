@@ -6,10 +6,10 @@
 	<title>Admin - Match3 ตรุษจีน</title>
 	<style>
 		*{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,Arial}
-		body{background:linear-gradient(135deg,#ececec 0%,#ffffff 100%);color:#fff;min-height:100vh;padding:24px}
+		body{background:linear-gradient(135deg,#f5f5f5 0%,#ffffff 100%);color:#fff;min-height:100vh;padding:24px}
 		.wrap{max-width:1200px;margin:0 auto}
 		h1{color:#000000;margin-bottom:16px}
-		.card{background:rgba(143, 143, 143, 0.25);border:1px solid rgba(138, 138, 138, 0.25);border-radius:12px;padding:16px;margin-bottom:16px}
+		.card{background:rgba(175, 175, 175, 0.25);border:1px solid rgba(138, 138, 138, 0.25);border-radius:12px;padding:16px;margin-bottom:16px}
 		.row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 		label{font-size:12px;color:#000000}
 		input{width:100%;padding:10px 12px;border-radius:8px;border:none}
@@ -17,12 +17,23 @@
 		.btn-secondary{background:#fff;color:#c30000}
 		.btn-danger{background:#8b0000}
 		.actions{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
-		.link-box{display:flex;gap:8px;align-items:center;margin-top:10px}
-		.link-box input{flex:1}
 		table{width:100%;border-collapse:collapse}
 		th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,0.1);text-align:left;font-size:14px}
 		th{color:#000000}
 		.table-actions{display:flex;gap:6px;flex-wrap:wrap}
+        h3{color:#000000;margin-bottom:8px}
+		.status-icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-weight:800;font-size:12px}
+		.status-yes{background:#16a34a;color:#fff}
+		.status-no{background:#e5e7eb;color:#6b7280}
+		.icon-btn{border:none;background:#16a34a;color:#fff;font-weight:800;border-radius:50%;width:22px;height:22px;cursor:pointer}
+		.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:200}
+		.overlay.show{display:flex}
+		.modal{background:#fff;color:#111;padding:20px;border-radius:12px;min-width:320px;max-width:520px;width:90%}
+		.modal h3{color:#111;margin:0 0 12px 0}
+		.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;font-size:14px}
+		.modal-item span{display:block;font-size:11px;color:#6b7280;margin-bottom:4px}
+		.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+		.mono{font-family:ui-monospace,Consolas,monospace;font-size:13px}
 		@media (max-width: 900px){
 			.row{grid-template-columns:1fr 1fr}
 		}
@@ -37,6 +48,7 @@
 
 		<div class="card">
 			<h3>สร้างผู้เล่นใหม่</h3>
+			<div id="statusMsg" style="margin-top:8px;color:#b91c1c;font-size:12px"></div>
 			<div class="row" style="margin-top:12px">
 				<div>
 					<label>USER_ID</label>
@@ -59,10 +71,6 @@
 				<button class="btn" id="createBtn">บันทึก</button>
 				<button class="btn-secondary btn" id="refreshBtn">รีเฟรช</button>
 			</div>
-			<div class="link-box">
-				<input id="playLink" readonly placeholder="ลิงก์สำหรับให้ลูกค้าเล่นเกม" />
-				<button class="btn" id="copyBtn">คัดลอกลิงก์</button>
-			</div>
 		</div>
 
 		<div class="card">
@@ -83,6 +91,26 @@
 				<tbody id="userTable"></tbody>
 			</table>
 		</div>
+
+		<div class="overlay" id="detailOverlay">
+			<div class="modal">
+				<h3>ข้อมูลผู้รับรางวัล</h3>
+				<div class="modal-grid">
+					<div class="modal-item"><span>USER_ID</span><div class="mono" id="detailUserId"></div></div>
+					<div class="modal-item"><span>ชื่อ-นามสกุล</span><div id="detailName"></div></div>
+					<div class="modal-item"><span>เบอร์โทร</span><div id="detailPhone"></div></div>
+					<div class="modal-item"><span>ที่อยู่</span><div id="detailAddress"></div></div>
+					<div class="modal-item"><span>แขวง/ตำบล</span><div id="detailSubdistrict"></div></div>
+					<div class="modal-item"><span>เขต/อำเภอ</span><div id="detailDistrict"></div></div>
+					<div class="modal-item"><span>จังหวัด</span><div id="detailProvince"></div></div>
+					<div class="modal-item"><span>รหัสไปรษณีย์</span><div id="detailPostal"></div></div>
+				</div>
+				<div class="modal-actions">
+					<button class="btn-secondary btn" id="copyDetailBtn">คัดลอกข้อมูล</button>
+					<button class="btn" id="closeDetailBtn">ปิด</button>
+				</div>
+			</div>
+		</div>
 	</div>
 
 	<script>
@@ -90,22 +118,24 @@
 		const firstNameEl = document.getElementById('firstName');
 		const lastNameEl = document.getElementById('lastName');
 		const phoneEl = document.getElementById('phone');
-		const playLinkEl = document.getElementById('playLink');
 		const userTable = document.getElementById('userTable');
+		const statusMsg = document.getElementById('statusMsg');
+		const detailOverlay = document.getElementById('detailOverlay');
+		const detailUserId = document.getElementById('detailUserId');
+		const detailName = document.getElementById('detailName');
+		const detailPhone = document.getElementById('detailPhone');
+		const detailAddress = document.getElementById('detailAddress');
+		const detailSubdistrict = document.getElementById('detailSubdistrict');
+		const detailDistrict = document.getElementById('detailDistrict');
+		const detailProvince = document.getElementById('detailProvince');
+		const detailPostal = document.getElementById('detailPostal');
 
 		const baseUrl = window.location.origin;
 
-		function updateLink(){
-			const userId = (userIdEl.value || '').trim();
-			playLinkEl.value = userId ? `${baseUrl}/index.html?u=${encodeURIComponent(userId)}` : '';
+		function setStatus(message, isError = true){
+			statusMsg.textContent = message || '';
+			statusMsg.style.color = isError ? '#b91c1c' : '#15803d';
 		}
-
-		userIdEl.addEventListener('input', updateLink);
-
-		document.getElementById('copyBtn').addEventListener('click', async ()=>{
-			if(!playLinkEl.value) return;
-			await navigator.clipboard.writeText(playLinkEl.value);
-		});
 
 		document.getElementById('createBtn').addEventListener('click', async ()=>{
 			const payload = {
@@ -115,15 +145,20 @@
 				phone: (phoneEl.value || '').trim()
 			};
 			if(!payload.user_id || !payload.first_name || !payload.last_name || !payload.phone) return;
-
-			await fetch('/api/admin/users', {
+			setStatus('');
+			const res = await fetch('/api/admin/users', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
 			});
+			if(!res.ok){
+				const data = await res.json().catch(()=>({}));
+				setStatus(data.error || 'บันทึกไม่สำเร็จ');
+				return;
+			}
+			setStatus('บันทึกสำเร็จ', false);
 
 			userIdEl.value=''; firstNameEl.value=''; lastNameEl.value=''; phoneEl.value='';
-			updateLink();
 			loadUsers();
 		});
 
@@ -134,6 +169,8 @@
 			const data = await res.json();
 			userTable.innerHTML = '';
 			(data.items || []).forEach(row => {
+				const finishIcon = row.finish ? '<span class="status-icon status-yes">✔</span>' : '<span class="status-icon status-no">-</span>';
+				const claimedIcon = row.claimed ? '<button class="icon-btn" data-action="claimed" title="ดูข้อมูล">✔</button>' : '<span class="status-icon status-no">-</span>';
 				const tr = document.createElement('tr');
 				tr.innerHTML = `
 					<td>${row.user_id}</td>
@@ -141,10 +178,11 @@
 					<td><input value="${row.last_name}" data-field="last_name" /></td>
 					<td><input value="${row.phone}" data-field="phone" /></td>
 					<td><input value="${row.score}" data-field="score" /></td>
-					<td>${row.finish ? 'true' : 'false'}</td>
-					<td>${row.claimed ? 'true' : 'false'}</td>
+					<td>${finishIcon}</td>
+					<td>${claimedIcon}</td>
 					<td class="table-actions">
 						<button class="btn" data-action="save">บันทึก</button>
+						<button class="btn-secondary btn" data-action="copy-link">คัดลอกลิงก์</button>
 						<button class="btn-danger btn" data-action="delete">ลบ</button>
 					</td>
 				`;
@@ -170,9 +208,41 @@
 					loadUsers();
 				});
 
+				tr.querySelector('[data-action="copy-link"]').addEventListener('click', async ()=>{
+					const link = `${baseUrl}/index.html?u=${encodeURIComponent(row.user_id)}`;
+					await navigator.clipboard.writeText(link);
+				});
+
+				const claimedBtn = tr.querySelector('[data-action="claimed"]');
+				if(claimedBtn){
+					claimedBtn.addEventListener('click', ()=>{
+						const fullAddress = [row.address, row.subdistrict, row.district, row.province, row.postal_code]
+							.filter(Boolean)
+							.join(' ');
+						detailUserId.textContent = row.user_id;
+						detailName.textContent = `${row.first_name} ${row.last_name}`.trim();
+						detailPhone.textContent = row.phone || '-';
+						detailAddress.textContent = row.address || '-';
+						detailSubdistrict.textContent = row.subdistrict || '-';
+						detailDistrict.textContent = row.district || '-';
+						detailProvince.textContent = row.province || '-';
+						detailPostal.textContent = row.postal_code || '-';
+						detailOverlay.classList.add('show');
+					});
+				}
+
 				userTable.appendChild(tr);
 			});
 		}
+
+		document.getElementById('closeDetailBtn').addEventListener('click', ()=>{
+			detailOverlay.classList.remove('show');
+		});
+
+		document.getElementById('copyDetailBtn').addEventListener('click', async ()=>{
+			const text = `USER_ID: ${detailUserId.textContent}\nชื่อ-นามสกุล: ${detailName.textContent}\nเบอร์โทร: ${detailPhone.textContent}\nที่อยู่: ${detailAddress.textContent}\nแขวง/ตำบล: ${detailSubdistrict.textContent}\nเขต/อำเภอ: ${detailDistrict.textContent}\nจังหวัด: ${detailProvince.textContent}\nรหัสไปรษณีย์: ${detailPostal.textContent}`;
+			await navigator.clipboard.writeText(text);
+		});
 
 		loadUsers();
 	</script>

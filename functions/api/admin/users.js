@@ -1,6 +1,6 @@
 export async function onRequestGet({ env }) {
   const { results } = await env.DB.prepare(
-    'SELECT user_id, first_name, last_name, phone, score, finish, claimed, created_at, updated_at FROM users ORDER BY created_at DESC'
+    'SELECT user_id, first_name, last_name, phone, score, finish, claimed, address, subdistrict, district, province, postal_code, created_at, updated_at FROM users ORDER BY created_at DESC'
   ).all();
 
   const items = (results || []).map(r => ({
@@ -11,6 +11,11 @@ export async function onRequestGet({ env }) {
     score: r.score,
     finish: !!r.finish,
     claimed: !!r.claimed,
+    address: r.address || '',
+    subdistrict: r.subdistrict || '',
+    district: r.district || '',
+    province: r.province || '',
+    postal_code: r.postal_code || '',
     created_at: r.created_at,
     updated_at: r.updated_at
   }));
@@ -32,6 +37,17 @@ export async function onRequestPost({ request, env }) {
     if (!userId || !firstName || !lastName || !phone) {
       return new Response(JSON.stringify({ error: 'Invalid payload' }), {
         status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const existing = await env.DB.prepare(
+      'SELECT user_id FROM users WHERE user_id = ?'
+    ).bind(userId).all();
+
+    if (existing.results && existing.results.length > 0) {
+      return new Response(JSON.stringify({ error: 'User already exists' }), {
+        status: 409,
         headers: { 'Content-Type': 'application/json' }
       });
     }

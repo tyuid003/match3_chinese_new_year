@@ -26,13 +26,6 @@ export async function onRequestPost({ request, env }) {
       });
     }
 
-    if (Number(results[0].claimed) === 1) {
-      return new Response(JSON.stringify({ error: 'Reward already claimed' }), {
-        status: 409,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
     await env.DB.prepare(
       'UPDATE users SET address = ?, subdistrict = ?, district = ?, province = ?, postal_code = ?, claimed = 1, finish = 1, updated_at = datetime("now") WHERE user_id = ?'
     ).bind(address, subdistrict, district, province, postalCode, userId).run();

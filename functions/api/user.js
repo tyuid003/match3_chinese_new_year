@@ -10,7 +10,7 @@ export async function onRequestGet({ request, env }) {
   }
 
   const { results } = await env.DB.prepare(
-    'SELECT user_id, first_name, last_name, phone, score, finish, claimed FROM users WHERE user_id = ?'
+    'SELECT user_id, first_name, last_name, phone, score, finish, claimed, address, subdistrict, district, province, postal_code FROM users WHERE user_id = ?'
   ).bind(userId).all();
 
   if (!results || results.length === 0) {
@@ -28,7 +28,12 @@ export async function onRequestGet({ request, env }) {
     phone: row.phone,
     score: row.score,
     finish: !!row.finish,
-    claimed: !!row.claimed
+    claimed: !!row.claimed,
+    address: row.address || '',
+    subdistrict: row.subdistrict || '',
+    district: row.district || '',
+    province: row.province || '',
+    postal_code: row.postal_code || ''
   }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' }

@@ -263,6 +263,23 @@
       document.getElementById('prizeName').textContent = prizeData.title;
       document.getElementById('prizeDesc').textContent = prizeData.description;
     }
+
+    async function preloadUserInfo(){
+      if(!userId) return;
+      try{
+        const res = await fetch(`/api/user?u=${encodeURIComponent(userId)}`);
+        if(!res.ok) return;
+        const data = await res.json();
+        if(data.first_name) document.getElementById('firstName').value = data.first_name;
+        if(data.last_name) document.getElementById('lastName').value = data.last_name;
+        if(data.phone) document.getElementById('phone').value = data.phone;
+        if(data.address) document.getElementById('address').value = data.address;
+        if(data.subdistrict) document.getElementById('subdistrict').value = data.subdistrict;
+        if(data.district) document.getElementById('district').value = data.district;
+        if(data.province) document.getElementById('province').value = data.province;
+        if(data.postal_code) document.getElementById('postalCode').value = data.postal_code;
+      }catch(e){}
+    }
     
     // Form submission
     const form = document.getElementById('addressForm');
@@ -313,6 +330,8 @@
       const nextUrl = userId ? `index.html?u=${encodeURIComponent(userId)}` : 'index.html';
       window.location.href = nextUrl;
     });
+
+    preloadUserInfo();
   </script>
 </body>
 </html>

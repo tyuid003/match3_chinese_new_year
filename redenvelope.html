@@ -272,7 +272,8 @@
     const claimBtn = document.getElementById('claimBtn');
     const playAgainBtn = document.getElementById('playAgainBtn');
 
-    let hasOpened = false;
+    const openedKey = userId ? `openedEnvelope_${userId}` : 'openedEnvelope';
+    let hasOpened = localStorage.getItem(openedKey) === '1';
 
     async function checkEligibility(){
       if(!userId){
@@ -291,7 +292,7 @@
           return false;
         }
         if(data.claimed){
-          showInfo('คุณรับรางวัลแล้ว', 'คุณสามารถเล่นเกมต่อได้ แต่รับรางวัลได้ครั้งเดียว', true);
+          showClaimInfo('คุณรับรางวัลแล้ว', 'คุณสามารถกดเพื่อกรอกข้อมูลจัดส่งได้ทันที');
           return false;
         }
         return true;
@@ -306,7 +307,18 @@
       prizeTitle.textContent = title;
       prizeDescription.textContent = message;
       claimBtn.style.display = 'none';
+      claimBtn.textContent = 'รับรางวัล';
       playAgainBtn.style.display = showPlayAgain ? 'inline-block' : 'none';
+      overlay.classList.add('show');
+    }
+
+    function showClaimInfo(title, message){
+      prizeImage.src = 'https://via.placeholder.com/200/cccccc/ffffff?text=Info';
+      prizeTitle.textContent = title;
+      prizeDescription.textContent = message;
+      claimBtn.textContent = 'กรอกข้อมูลรับรางวัล';
+      claimBtn.style.display = 'inline-block';
+      playAgainBtn.style.display = 'none';
       overlay.classList.add('show');
     }
 
@@ -317,6 +329,7 @@
         if(!eligible) return;
 
         hasOpened = true;
+        localStorage.setItem(openedKey, '1');
 
         // Mark all as opened
         envelopes.forEach(e => e.classList.add('opened'));
@@ -332,6 +345,26 @@
       });
     });
 
+    async function preloadClaimedStatus(){
+      if(!userId) return;
+      if(hasOpened){
+        showClaimInfo('คุณเปิดซองแล้ว', 'กรุณากดเพื่อกรอกข้อมูลรับรางวัล');
+        envelopes.forEach(e => e.classList.add('opened'));
+        return;
+      }
+      try{
+        const res = await fetch(`/api/user?u=${encodeURIComponent(userId)}`);
+        if(!res.ok) return;
+        const data = await res.json();
+        if(data.claimed){
+          hasOpened = true;
+          localStorage.setItem(openedKey, '1');
+          showClaimInfo('คุณรับรางวัลแล้ว', 'กรุณากดเพื่อกรอกข้อมูลจัดส่ง');
+          envelopes.forEach(e => e.classList.add('opened'));
+        }
+      }catch(e){}
+    }
+
     // Claim button
     claimBtn.addEventListener('click', () => {
       const nextUrl = userId ? `address.html?u=${encodeURIComponent(userId)}` : 'address.html';
@@ -342,6 +375,8 @@
       const nextUrl = userId ? `index.html?u=${encodeURIComponent(userId)}` : 'index.html';
       window.location.href = nextUrl;
     });
+
+    preloadClaimedStatus();
   </script>
 </body>
 </html>
