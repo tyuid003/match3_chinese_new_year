@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Match3 5x5 (Demo) - refined drops</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#10b981;--text:#e6eef8}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Arial}
+    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071028 0%, #071a2a 100%);color:var(--text);display:flex;align-items:center;justify-content:center}
+    .wrap{width:1100px;padding:24px}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+    .stats{display:flex;gap:18px;align-items:center}
+    .stat{background:rgba(255,255,255,0.03);padding:10px 14px;border-radius:10px;min-width:120px;text-align:center}
+    .stat h4{margin:0;font-size:14px;color:#a7d8ff}
+    .stat p{margin:4px 0 0;font-size:20px;font-weight:700}
+
+    .game-area{display:flex;gap:20px;align-items:center}
+    .helpers{display:flex;flex-direction:column;gap:12px}
+    .helper{width:120px;background:rgba(255,255,255,0.03);padding:8px;border-radius:12px;text-align:center}
+    .helper img{width:64px;height:64px;object-fit:cover;border-radius:8px}
+    .progress{height:10px;background:rgba(255,255,255,0.06);border-radius:8px;margin-top:8px;overflow:hidden}
+    .progress > div{height:100%;width:0%;background:linear-gradient(90deg,#ffd166,#ef476f);transition:width 400ms}
+    .board-wrap{background:rgba(255,255,255,0.03);padding:18px;border-radius:14px;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+    /* fixed board height to hide tiles above the grid when they drop */
+    .board{display:grid;grid-template-columns:repeat(5,80px);grid-gap:8px;padding:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border-radius:12px;height:calc(5 * 80px + 4 * 8px + 24px);box-sizing:content-box}
+    .tile{width:80px;height:80px;border-radius:10px;background:#1b2b3a;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 360ms cubic-bezier(.22,.9,.3,1),opacity 260ms;will-change:transform,opacity}
+    .tile img{width:60px;height:60px}
+    .tile.selected{outline:3px solid rgba(255,255,255,0.12);transform:scale(1.04)}
+
+    /* smooth drop animation helpers */
+    .pre-drop{opacity:0}
+    .dropping{transition:transform 420ms cubic-bezier(.22,.9,.3,1),opacity 260ms;transform:translateY(0);opacity:1}
+
+    /* removal effects */
+    .popout{transform:scale(.25);opacity:0;transition:transform 260ms,opacity 220ms}
+    .shake{animation:shake 260ms ease-in-out}
+    @keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-8px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}100%{transform:translateX(0)}}
+
+    .center-activate{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(0);pointer-events:none;transition:transform 400ms cubic-bezier(.2,.9,.2,1);} 
+    .center-activate.show{transform:translate(-50%,-50%) scale(1);pointer-events:auto}
+    .center-activate img{width:160px;height:160px}
+    .overlay{position:fixed;inset:0;background:rgba(2,6,23,0.7);display:flex;align-items:center;justify-content:center;z-index:30}
+    .modal{background:var(--card);padding:30px;border-radius:14px;text-align:center;min-width:360px}
+    .btn{background:linear-gradient(90deg,#2563eb,#7c3aed);border:none;color:white;padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer}
+    .small{font-size:13px;color:#b6d8ff}
+    .footer{margin-top:12px;font-size:13px;color:#9fbbe6}
+    /* simple effects */
+    .pop{animation:pop .35s ease}
+    @keyframes pop{0%{transform:scale(0.6);opacity:0}100%{transform:none;opacity:1}}
+
+    /* mobile layout: helpers below board, small round images */
+    @media (max-width:780px){
+      .wrap{width:94%;padding:12px}
+      .game-area{flex-direction:column;align-items:center}
+      .helpers{flex-direction:row;gap:10px;justify-content:center;width:100%;margin-top:12px}
+      .helper{width:72px;padding:6px;border-radius:999px;background:rgba(255,255,255,0.03);display:flex;flex-direction:column;align-items:center}
+      .helper img{width:44px;height:44px;border-radius:999px}
+      .progress{height:6px;width:56px;margin-top:6px;border-radius:6px}
+      .board{grid-template-columns:repeat(5,60px);grid-gap:6px;height:calc(5 * 60px + 4 * 6px + 24px)}
+      .tile{width:60px;height:60px;border-radius:10px}
+      .tile img{width:46px;height:46px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h2 style="margin:0">Match3 5x5 — Demo</h2>
+        <p class="small">กระดาน 5x5, 4 ชนิด, ตัวช่วย 4 ตัว</p>
+      </div>
+      <div class="stats">
+        <div class="stat"><h4>Score (tiles destroyed)</h4><p id="score">0</p></div>
+        <div class="stat"><h4>Moves</h4><p id="moves">20</p></div>
+      </div>
+    </header>
+
+    <div class="game-area">
+      <div class="helpers" id="left-helpers"></div>
+
+      <div class="board-wrap">
+        <div class="board" id="board"></div>
+      </div>
+
+      <div class="helpers" id="right-helpers"></div>
+    </div>
+
+    <div class="footer">คู่มือง่าย ๆ: แตะ/คลิกไทล์สองครั้งเพื่อสลับ (เฉพาะ tile ที่อยู่ติดกัน)</div>
+  </div>
+
+  <div class="center-activate" id="centerActivate">
+    <div class="modal pop" style="background:transparent;box-shadow:none;">
+      <img id="centerActivateImg" src="" alt="activate" />
+    </div>
+  </div>
+
+  <div class="overlay" id="startOverlay">
+    <div class="modal">
+      <h3>พร้อมเล่นหรือยัง?</h3>
+      <p class="small">กระดานจะสุ่มทุกครั้งให้ไม่เกิด match เริ่มด้วย 20 moves</p>
+      <div style="margin-top:18px"><button class="btn" id="startBtn">เริ่มเกม</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="endOverlay" style="display:none;">
+    <div class="modal">
+      <h3>เกมจบแล้ว</h3>
+      <p class="small">คะแนนรวม: <strong id="finalScore">0</strong></p>
+      <div style="margin-top:18px"><button class="btn" id="restartBtn">เริ่มเกมใหม่</button></div>
+    </div>
+  </div>
+
+  <!-- Audio (dummy links) -->
+  <audio id="s_do" src="sounds/item-collect-Do.m4a"></audio>
+  <audio id="s_re" src="sounds/item-collect-Re.m4a"></audio>
+  <audio id="s_mi" src="sounds/item-collect-Mi.m4a"></audio>
+  <audio id="s_fa" src="sounds/item-collect-Fa.m4a"></audio>
+  <audio id="s_so" src="sounds/item-collect-So.m4a"></audio>
+  <audio id="s_la" src="sounds/item-collect-La.m4a"></audio>
+  <audio id="s_ti" src="sounds/item-collect-Ti.m4a"></audio>
+  <audio id="s_combo" src="sounds/item-collect-Do2.m4a"></audio>
+  <audio id="s_invalid" src="sounds/item-collect-Do2.m4a"></audio>
+
+  <script>
+    // Config
+    const ROWS = 5, COLS = 5;
+    const START_MOVES = 20;
+    const TILE_TYPES = 4;
+    const HELP_TARGET = 30;
+    const tileImages = [
+      'https://mockimage.tw/photo/200x200/ffffff/000000/A',
+      'https://mockimage.tw/photo/200x200/FF3333/000000/B',
+      'https://mockimage.tw/photo/200x200/FF00CC/000000/C',
+      'https://mockimage.tw/photo/200x200/33FF33/000000/D'
+    ];
+
+    // helper images (matching types)
+    const helperImgs = [
+      'https://mockimage.tw/photo/200x200/ffffff/000000/ฮีล5',
+      'https://mockimage.tw/photo/200x200/FF3333/000000/ทำลายแดง',
+      'https://mockimage.tw/photo/200x200/FF00CC/000000/X-crossblast',
+      'https://mockimage.tw/photo/200x200/33FF33/000000/3*3blast'
+    ];
+    const helperSounds = ['sounds/h1.wav','sounds/h2.wav','sounds/h3.wav','sounds/h4.wav'];
+
+    // state
+    let board = [];// 2D array of {type, el}
+    let score = 0;
+    let moves = START_MOVES;
+    let selected = null;
+    let helperProgress = [0,0,0,0];
+    let lastSwapPos = null; // {r,c}
+    let lastRemovalWasHelper = false; // controls slower animation for helper removals
+
+    // audio sequence for combos
+    const comboOrder = ['s_do','s_re','s_mi','s_fa','s_so','s_la','s_ti','s_do'];
+
+    // DOM
+    const boardEl = document.getElementById('board');
+    const scoreEl = document.getElementById('score');
+    const movesEl = document.getElementById('moves');
+    const startOverlay = document.getElementById('startOverlay');
+    const endOverlay = document.getElementById('endOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const centerActivate = document.getElementById('centerActivate');
+    const centerActivateImg = document.getElementById('centerActivateImg');
+
+    // create UI for helpers (2 left, 2 right)
+    function createHelpers(){
+      const left = document.getElementById('left-helpers');
+      const right = document.getElementById('right-helpers');
+      left.innerHTML = '';
+      right.innerHTML = '';
+      for(let i=0;i<4;i++){
+        const col = document.createElement('div');
+        col.className = 'helper';
+        col.id = 'helper-'+i;
+        col.innerHTML = `<img src="${helperImgs[i]}" alt="H${i+1}"><div class="small">ตัวช่วย ${i+1}</div><div class="progress"><div style="width:0%"></div></div>`;
+        if(i<2) left.appendChild(col); else right.appendChild(col);
+      }
+    }
+
+    function updateHelpers(){
+      for(let i=0;i<4;i++){
+        const el = document.querySelector('#helper-'+i+' .progress > div');
+        const w = Math.min(100, (helperProgress[i]/HELP_TARGET)*100);
+        el.style.width = w+'%';
+      }
+    }
+
+    // Board helpers
+    function makeEmptyBoard(){
+      board = [];
+      for(let r=0;r<ROWS;r++){
+        board[r]=[];
+        for(let c=0;c<COLS;c++){
+          board[r][c] = {type:randType(), el:null};
+        }
+      }
+    }
+
+    function randType(){
+      return Math.floor(Math.random()*TILE_TYPES);
+    }
+
+    function renderBoard(){
+      boardEl.innerHTML = '';
+      for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
+          const t = board[r][c];
+          const div = document.createElement('div');
+          div.className = 'tile';
+          div.dataset.r = r; div.dataset.c = c;
+          const img = document.createElement('img'); img.src = tileImages[t.type];
+          div.appendChild(img);
+          boardEl.appendChild(div);
+          t.el = div;
+          div.addEventListener('click', onTileClick);
+        }
+      }
+    }
+
+    // ensure initial board has no matches
+    function removeInitialMatches(){
+      let changed = true;
+      while(changed){
+        changed=false;
+        const matches = findMatches();
+        if(matches.length){
+          changed=true;
+          for(const pos of matches){
+            // replace with a different type
+            board[pos.r][pos.c].type = randDifferent(board[pos.r][pos.c].type);
+          }
+        }
+      }
+    }
+    function randDifferent(exclude){
+      let t = randType();
+      while(t===exclude) t = randType();
+      return t;
+    }
+
+    // find matches (return array of positions)
+    function findMatches(){
+      const toRemove = [];
+      // horiz
+      for(let r=0;r<ROWS;r++){
+        let runType = null, runStart=0, runLen=0;
+        for(let c=0;c<=COLS;c++){
+          const type = (c<COLS)? board[r][c].type : null;
+          if(type===runType) runLen++; else {
+            if(runType!==null && runLen>=3){
+              for(let k=runStart;k<runStart+runLen;k++) toRemove.push({r, c:k});
+            }
+            runType = type; runStart = c; runLen = 1;
+          }
+        }
+      }
+      // vert
+      for(let c=0;c<COLS;c++){
+        let runType=null, runStart=0, runLen=0;
+        for(let r=0;r<=ROWS;r++){
+          const type = (r<ROWS)? board[r][c].type : null;
+          if(type===runType) runLen++; else {
+            if(runType!==null && runLen>=3){
+              for(let k=runStart;k<runStart+runLen;k++) toRemove.push({r:k, c});
+            }
+            runType=type; runStart=r; runLen=1;
+          }
+        }
+      }
+      // dedupe
+      const key = (p)=>`${p.r},${p.c}`;
+      const seen = new Set();
+      const unique=[];
+      for(const p of toRemove){ if(!seen.has(key(p))){seen.add(key(p)); unique.push(p);} }
+      return unique;
+    }
+
+    // tile click handler
+    function onTileClick(e){
+      const r = +this.dataset.r, c=+this.dataset.c;
+      if(selected && selected.r===r && selected.c===c){
+        // unselect
+        selected = null; this.classList.remove('selected');
+        return;
+      }
+      if(!selected){
+        selected={r,c}; this.classList.add('selected');
+        return;
+      }
+      // second click
+      const prev = document.querySelector('.tile.selected');
+      if(prev) prev.classList.remove('selected');
+      const dr = Math.abs(selected.r - r), dc = Math.abs(selected.c - c);
+      if((dr===1 && dc===0) || (dr===0 && dc===1)){
+        // adjacent -> attempt swap
+        doSwap(selected.r, selected.c, r, c);
+      }
+      selected=null;
+    }
+
+    function doSwap(r1,c1,r2,c2){
+      lastSwapPos = {r:r2,c:c2};
+      swapTiles(r1,c1,r2,c2);
+      renderTiles();
+      const matches = findMatches();
+      if(matches.length===0){
+        // swap back (invalid move) play invalid sound
+        setTimeout(()=>{
+          swapTiles(r1,c1,r2,c2); renderTiles(); playSound('s_invalid');
+        },220);
+        return;
+      }
+      // valid move -> consume move
+      moves--; updateMoves();
+      processMatches().then(()=>{
+        // after all cascades, check end
+        checkGameEnd();
+      });
+    }
+
+    function swapTiles(r1,c1,r2,c2){
+      const tmp = board[r1][c1].type; board[r1][c1].type = board[r2][c2].type; board[r2][c2].type = tmp;
+    }
+
+    function renderTiles(){
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+        const t = board[r][c]; if(t.el) t.el.querySelector('img').src = tileImages[t.type];
+      }
+    }
+
+    // processMatches now captures pre-removal types so we can compute precise drop distances
+    async function processMatches(){
+      let comboChain = 0;
+      while(true){
+        const matches = findMatches();
+        if(matches.length===0) break;
+        comboChain++;
+        playComboSound(comboChain);
+        // capture pre-removal types for targeted drop distances
+        window._preTypesForCollapse = board.map(row=>row.map(c=>c.type));
+        // count
+        score += matches.length; updateScore();
+        // increment helper progress for each tile destroyed
+        for(const m of matches){ helperProgress[ board[m.r][m.c].type ]++; }
+        updateHelpers();
+        // remove tiles (not yet collapsed) with normal removal animation
+        await animateRemovals(matches, false);
+        // collapse and refill - this will use window._preTypesForCollapse to compute per-tile drop
+        collapseAndRefill();
+        await wait(380);
+        for(let i=0;i<4;i++){ if(helperProgress[i]>=HELP_TARGET) activateHelper(i); }
+      }
+    }
+
+    function playComboSound(chainIndex){
+      const idx = Math.min(comboOrder.length-1, chainIndex-1);
+      playSound(comboOrder[idx]);
+    }
+
+    function playSound(id){
+      try{ const a = document.getElementById(id); if(a){ a.currentTime=0; a.play(); }}catch(e){}
+    }
+
+    // animate removals: if isHelper true -> shake then vanish (and mark lastRemovalWasHelper true)
+    function animateRemovals(matches, isHelper){
+      return new Promise((resolve)=>{
+        lastRemovalWasHelper = !!isHelper;
+        const els = [];
+        const seen = new Set();
+        for(const m of matches){ const el = board[m.r][m.c].el; if(el && !seen.has(el)){ seen.add(el); els.push(el); } }
+        if(els.length===0){ resolve(); return; }
+        if(isHelper){ // shake first then vanish (slower)
+          for(const el of els) el.classList.add('shake');
+          setTimeout(()=>{
+            for(const el of els){ el.classList.remove('shake'); el.classList.add('popout'); }
+            setTimeout(()=>{
+              for(const m of matches){ board[m.r][m.c].type = null; }
+              for(const el of els){ el.classList.remove('popout'); }
+              resolve();
+            },420);
+          },320);
+        } else {
+          for(const el of els){ el.classList.add('popout'); }
+          setTimeout(()=>{
+            for(const m of matches) board[m.r][m.c].type = null;
+            for(const el of els) el.classList.remove('popout');
+            resolve();
+          },200);
+        }
+      });
+    }
+
+    // collapse and refill with smooth drop animation, but only for columns/rows that were affected
+    function collapseAndRefill(){
+      const pre = window._preTypesForCollapse || board.map(row=>row.map(c=>c.type));
+      // for each column, compute stack of remaining types after removals
+      const finalCols = [];
+      for(let c=0;c<COLS;c++){
+        const stack = [];
+        for(let r=ROWS-1;r>=0;r--){ if(board[r][c].type!==null && board[r][c].type!==undefined) stack.push(board[r][c].type); }
+        finalCols[c] = stack.slice();
+      }
+
+      // apply final column values into board (fill with new random types when needed)
+      for(let c=0;c<COLS;c++){
+        for(let r=ROWS-1;r>=0;r--){
+          const idx = (ROWS-1 - r);
+          const val = finalCols[c][idx] !== undefined ? finalCols[c][idx] : randType();
+          board[r][c].type = val;
+        }
+      }
+
+      // compute tile size (in px) to determine drop distances
+      const sample = boardEl.querySelector('.tile');
+      const tileSize = sample ? sample.offsetHeight : 80;
+
+      // For each column, determine source rows of remaining tiles from pre[] before removal
+      for(let c=0;c<COLS;c++){
+        // sourceRows: indexes (row number) in pre where pre[row][c] was NOT null
+        const sourceRows = [];
+        for(let r=0;r<ROWS;r++){ if(pre[r] && pre[r][c]!==null && pre[r][c]!==undefined) sourceRows.push(r); }
+        // We'll map from bottom: for final rows bottom-up, assign sourceRow = sourceRows[sourceIdx]
+        let sourceIdx = 0;
+        for(let r=ROWS-1;r>=0;r--){
+          const finalType = board[r][c].type;
+          // determine if this finalType originated from an existing source row or is newly generated
+          const originRow = (sourceIdx < sourceRows.length) ? sourceRows[ sourceIdx ] : -1; // -1 => new tile from above
+          sourceIdx++;
+          const el = board[r][c].el;
+          if(!el) continue;
+          // If originRow === -1, we'll make it drop from above the board (bigger distance)
+          // If originRow > r then it actually fell downward -> animate. If originRow == r -> no move
+          let distanceRows;
+          if(originRow === -1) distanceRows = ROWS - r + 1; else distanceRows = originRow - r;
+          if(distanceRows > 0){
+            const fallDistance = distanceRows * tileSize;
+            // set starting transform to negative fallDistance (above) so it appears to drop into place
+            el.style.transition = 'none';
+            el.style.transform = `translateY(-${fallDistance}px)`;
+            el.style.opacity = '0';
+            // schedule animation; slower if lastRemovalWasHelper
+            const dropDur = lastRemovalWasHelper ? 700 : 420;
+            const opacityDur = lastRemovalWasHelper ? 420 : 260;
+            requestAnimationFrame(()=>{
+              requestAnimationFrame(()=>{
+                el.style.transition = `transform ${dropDur}ms cubic-bezier(.22,.9,.3,1),opacity ${opacityDur}ms`;
+                el.style.transform = 'translateY(0)';
+                el.style.opacity = '1';
+                // cleanup
+                setTimeout(()=>{ el.style.transition=''; el.style.transform=''; el.style.opacity=''; }, dropDur + 40);
+              });
+            });
+          } else {
+            // no vertical move -> ensure it's visible and reset
+            el.style.transition=''; el.style.transform=''; el.style.opacity='';
+          }
+        }
+      }
+
+      // reset helper flag
+      lastRemovalWasHelper = false;
+      // clear pre buffer
+      window._preTypesForCollapse = null;
+    }
+
+    function wait(ms){ return new Promise(res=>setTimeout(res,ms)); }
+
+    function updateScore(){ scoreEl.textContent = score; }
+    function updateMoves(){ movesEl.textContent = moves; }
+
+    function checkGameEnd(){
+      if(moves<=0){ // show end overlay
+        document.getElementById('finalScore').textContent = score;
+        endOverlay.style.display = 'flex';
+      }
+    }
+
+    // helper activation
+    function activateHelper(i){
+      helperProgress[i] = 0; updateHelpers();
+      // show center popup
+      centerActivateImg.src = helperImgs[i];
+      centerActivate.classList.add('show');
+      playExternalSound(helperSounds[i]);
+      setTimeout(()=> centerActivate.classList.remove('show'),900);
+      // apply effect
+      switch(i){
+        case 0: // +5 moves
+          moves +=5; updateMoves(); break;
+        case 1: // destroy all tiles of this type
+          // capture pre state
+          window._preTypesForCollapse = board.map(row=>row.map(c=>c.type));
+          destroyAllOfType(i); break;
+        case 2: // X cross blast around lastSwapPos
+          window._preTypesForCollapse = board.map(row=>row.map(c=>c.type));
+          if(lastSwapPos) blastX(lastSwapPos.r, lastSwapPos.c); else blastX(2,2); break;
+        case 3: // 3x3 around lastSwapPos
+          window._preTypesForCollapse = board.map(row=>row.map(c=>c.type));
+          if(lastSwapPos) blast3x3(lastSwapPos.r, lastSwapPos.c); else blast3x3(2,2); break;
+      }
+    }
+
+    function playExternalSound(src){
+      const a = new Audio(src); a.play().catch(()=>{});
+    }
+
+    async function destroyAllOfType(type){
+      const removed=[];
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(board[r][c].type===type){ removed.push({r,c}); }
+      if(removed.length){
+        await animateRemovals(removed, true);
+        collapseAndRefill();
+        await wait(300);
+        processMatches();
+      }
+    }
+
+    async function blastX(r,c){
+      const removed=[{r,c}];
+      const deltas=[[-1,-1],[1,1],[-1,1],[1,-1],[-2,-2],[2,2],[-2,2],[2,-2]];
+      for(const d of deltas){ const rr=r+d[0], cc=c+d[1]; if(rr>=0 && rr<ROWS && cc>=0 && cc<COLS) removed.push({r:rr,c:cc}); }
+      await animateRemovals(removed, true);
+      collapseAndRefill();
+      await wait(300);
+      processMatches();
+    }
+
+    async function blast3x3(r,c){
+      const removed=[];
+      for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){ const rr=r+dr, cc=c+dc; if(rr>=0 && rr<ROWS && cc>=0 && cc<COLS) removed.push({r:rr,c:cc}); }
+      await animateRemovals(removed, true);
+      collapseAndRefill();
+      await wait(300);
+      processMatches();
+    }
+
+    // start and restart
+    startBtn.addEventListener('click', ()=>{ startOverlay.style.display='none'; startGame(); });
+    restartBtn.addEventListener('click', ()=>{ endOverlay.style.display='none'; startGame(); });
+
+    function startGame(){
+      score=0; moves=START_MOVES; helperProgress=[0,0,0,0]; selected=null; lastSwapPos=null; lastRemovalWasHelper=false; window._preTypesForCollapse=null;
+      makeEmptyBoard(); removeInitialMatches(); renderBoard(); createHelpers(); updateScore(); updateMoves(); updateHelpers();
+    }
+
+    // initial load
+    window.addEventListener('load', ()=>{
+      createHelpers(); updateHelpers(); updateScore(); updateMoves();
+      centerActivate.addEventListener('click', ()=> centerActivate.classList.remove('show'));
+      const mq = window.matchMedia('(max-width:780px)');
+      function relocateHelpers(){
+        const left = document.getElementById('left-helpers');
+        const right = document.getElementById('right-helpers');
+        if(mq.matches){
+          const all = [...right.children]; all.forEach(n=> left.appendChild(n));
+        } else {
+          const all = [...left.children, ...right.children];
+          left.innerHTML=''; right.innerHTML='';
+          for(let i=0;i<all.length;i++){
+            if(i<2) left.appendChild(all[i]); else right.appendChild(all[i]);
+          }
+        }
+      }
+      relocateHelpers(); mq.addEventListener('change', relocateHelpers);
+    });
+  </script>
+</body>
+</html>

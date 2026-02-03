@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Match3 5x5 (Demo)</title>
+  <style>
+    :root{--bg:#240f0f;--card:#200b0b;--accent:#10b981;--text:#e6eef8;--tile-size:70px}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Arial}
+    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#280707 0%, #2a0707 100%);background-image : url("/images/bg.jpg");background-size: cover;background-position: center;background-repeat: no-repeat;color:var(--text);display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .wrap{max-width:1100px;width:100%;padding:16px;display:flex;flex-direction:column;align-items:center}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;background-color: #dd0000;border-radius: 10px;padding:16px 20px;width:100%;max-width:100%}
+    header > div h2{margin:8px 0 4px 0}
+    .stats{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+    .stat{background:rgba(255,255,255,0.03);padding:10px 14px;border-radius:10px;min-width:100px;text-align:center}
+    .stat h4{margin:0;font-size:13px;color:#fffb00}
+    .stat p{margin:4px 0 0;font-size:18px;font-weight:700}
+
+    .game-area{display:flex;gap:20px;align-items:center;justify-content:center;width:100%}
+    .helpers{display:flex;flex-direction:column;gap:12px}
+    .helper{width:110px;background:rgb(233, 0, 0);padding:8px;border-radius:12px;text-align:center}
+    .helper img{width:60px;height:60px;object-fit:cover;border-radius:8px}
+    .progress{height:10px;background:rgba(178,178,178);border-radius:8px;margin-top:8px;overflow:hidden}
+    .progress > div{height:100%;width:0%;background:linear-gradient(90deg,#ffd166,#ef476f);transition:width 400ms}
+    .board-wrap{background:rgba(212, 0, 0, 0.856);padding:18px;border-radius:14px;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+    /* fixed board height to hide tiles above the grid when they drop */
+    .board{display:grid;grid-template-columns:repeat(5,var(--tile-size));grid-gap:6px;padding:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border-radius:12px;height:calc(5 * var(--tile-size) + 4 * 6px + 24px);box-sizing:content-box;position:relative;overflow:visible}
+    .tile{width:var(--tile-size);height:var(--tile-size);border-radius:10px;background:#ffffffb5;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 360ms cubic-bezier(.22,.9,.3,1),opacity 260ms;will-change:transform,opacity;position:relative;z-index:2}
+    .tile img{width:calc(var(--tile-size) - 16px);height:calc(var(--tile-size) - 16px)}
+    .tile.selected{outline:3px solid rgba(255,255,255,0.12);transform:scale(1.04)}
+
+    /* Mobile responsive */
+    @media (max-width: 768px){
+      :root{--tile-size:60px}
+      body{overflow-y:auto;align-items:flex-start;background-position:left center}
+      .wrap{padding:12px;max-width:100%}
+      header{flex-direction:column;gap:12px;padding:12px 16px;text-align:center}
+      header > div h2{margin:4px 0}
+      .small{font-size:11px}
+      .stats{gap:12px;justify-content:center}
+      .stat{min-width:80px;padding:8px 10px}
+      .stat h4{font-size:11px}
+      .stat p{font-size:16px}
+      .game-area{flex-direction:column;gap:12px}
+      .helpers{flex-direction:row;gap:8px;justify-content:center;width:100%;flex-wrap:nowrap}
+      .helper{width:calc(25% - 6px);min-width:70px;max-width:90px;padding:6px}
+      .helper img{width:45px;height:45px}
+      #left-helpers{order:1;flex-direction:row;gap:8px;width:100%;justify-content:space-between}
+      #right-helpers{display:none !important}
+      .board-wrap{order:2}
+      .board{grid-gap:4px;padding:8px;height:calc(5 * var(--tile-size) + 4 * 4px + 16px)}
+      .footer{text-align:center;font-size:12px;padding:8px}
+    }
+
+    /* Red connection lines for helper effects */
+    .helper-line{position:absolute;background:#ffe800;height:4px;transform-origin:0 50%;opacity:0.95;z-index:6;pointer-events:none;transition:opacity 300ms;box-shadow:0 0 8px rgba(255,232,0,0.8)}
+    .helper-line.fade{opacity:0}
+
+    .move-boost{position:absolute;right:-6px;top:-6px;color:#00ff6a;font-weight:800;font-size:18px;animation:moveBoost 900ms ease-out forwards;pointer-events:none;text-shadow:0 0 8px rgba(0,255,106,0.8)}
+    @keyframes moveBoost{0%{transform:translateY(0) scale(0.9);opacity:0}20%{opacity:1}100%{transform:translateY(-18px) scale(1.1);opacity:0}}
+
+    .hint{animation:hintPulse 900ms ease-in-out infinite}
+    @keyframes hintPulse{0%{transform:scale(1)}50%{transform:scale(0.9)}100%{transform:scale(1)}}
+    
+    /* Deadlock notification */
+    .deadlock-msg{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(255,0,0,0.95);color:white;padding:20px 30px;border-radius:12px;font-size:18px;font-weight:700;z-index:200;animation:pop 0.35s ease}
+
+    @media (min-width: 769px) and (max-width: 1200px){
+      :root{--tile-size:65px}
+      .wrap{max-width:900px}
+    }
+
+    /* smooth drop animation helpers */
+    .pre-drop{opacity:0}
+    .dropping{transition:transform 420ms cubic-bezier(.22,.9,.3,1),opacity 260ms;transform:translateY(0);opacity:1}
+
+    /* removal effects */
+    .popout{transform:scale(.25);opacity:0;transition:transform 260ms,opacity 220ms}
+    .shake{animation:shake 260ms ease-in-out}
+    @keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-8px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}100%{transform:translateX(0)}}
+    .center-activate{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(0);pointer-events:none;transition:transform 400ms cubic-bezier(.2,.9,.2,1);}
+    .center-activate.show{transform:translate(-50%,-50%) scale(1);pointer-events:auto}
+    .center-activate img{width:160px;height:160px}
+    .overlay{position:fixed;inset:0;background:rgba(23, 2, 2, 0.7);display:flex;align-items:center;justify-content:center;z-index:30}
+    .modal{background:var(--card);padding:30px;border-radius:14px;text-align:center;min-width:360px}
+    .btn{background:linear-gradient(90deg,#ff0000,#ff7b00);border:none;color:white;padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer}
+    .small{font-size:13px;color:#ffe800}
+    .footer{margin-top:12px;font-size:13px;color:#330000}
+    /* simple effects */
+    .pop{animation:pop .35s ease}
+    h2 {color: #fffb00;}
+    h3 {margin: 0;}
+
+    @keyframes pop{0%{transform:scale(0.6);opacity:0}100%{transform:none;opacity:1}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h2 style="margin:0">Match3 5x5 — Demo</h2>
+        <p class="small">กระดาน 5x5, จับคู่ 3 ตัวขึ้นไปเพื่อทำลาย</p>
+      </div>
+      <div class="stats">
+        <div class="stat"><h4>Score (tiles destroyed)</h4><p id="score">0</p></div>
+        <div class="stat"><h4>Moves</h4><p id="moves">20</p></div>
+      </div>
+    </header>
+
+    <div class="game-area">
+      <div class="helpers" id="left-helpers">
+        <!-- two helpers left -->
+      </div>
+
+      <div class="board-wrap">
+        <div class="board" id="board"></div>
+      </div>
+
+      <div class="helpers" id="right-helpers">
+        <!-- two helpers right -->
+      </div>
+    </div>
+
+    <div class="footer">Tips: เรียงกระดานให้ได้ 3 ตัวขึ้นไปเพื่อทำลาย</div>
+  </div>
+
+  <!-- center activation animation -->
+  <div class="center-activate" id="centerActivate">
+    <div class="modal pop" style="background:transparent;box-shadow:none;">
+      <img id="centerActivateImg" src="" alt="activate" />
+    </div>
+  </div>
+
+  <!-- start overlay with tutorial -->
+  <div class="overlay" id="startOverlay">
+    <div class="modal" id="tutorialModal">
+      <div class="tutorial-slide" data-slide="0">
+        <img src="https://mockimage.tw/photo/1040x1300/eaeaea/ff8800" alt="Tutorial 1" style="max-width: 300px; width:auto;height:100%;border-radius:12px;margin-bottom:16px;object-fit:cover;background:#ffffffb5">
+        <h3>ยินดีต้อนรับสู่ Match3!</h3>
+        <p class="small">จับคู่อัญมณีอย่างน้อย 3 ชิ้นให้เรียงกัน<br>เพื่อทำลายและรับคะแนน</p>
+        <div style="margin-top:18px"><button class="btn" id="nextBtn1">ถัดไป</button></div>
+      </div>
+      <div class="tutorial-slide" data-slide="1" style="display:none">
+        <img src="https://mockimage.tw/photo/1040x1300/eaeaea/ff8800" alt="Tutorial 2" style="max-width: 300px; width:auto;height:100%;border-radius:12px;margin-bottom:16px;object-fit:cover;background:#ffffffb5">
+        <h3>สะสมคะแนนเพื่อปลดล็อคตัวช่วย</h3>
+        <p class="small">ทำลายอัญมณีแต่ละประเภทเพื่อเติมพลัง<br>เมื่อเต็มจะได้ใช้พลังพิเศษ</p>
+        <div style="margin-top:18px;display:flex;gap:8px;justify-content:center"><button class="btn" id="backBtn1">ก่อนหน้า</button><button class="btn" id="nextBtn2">ถัดไป</button></div>
+      </div>
+      <div class="tutorial-slide" data-slide="2" style="display:none">
+        <img src="https://mockimage.tw/photo/1040x1300/eaeaea/ff8800" alt="Tutorial 3" style="max-width: 300px; width:auto;height:100%;border-radius:12px;margin-bottom:16px;object-fit:cover;background:#ffffffb5">
+        <h3>ใช้กลยุทธ์และจับคู่ให้ได้มากที่สุด!</h3>
+        <p class="small">คุณมี 30 ครั้งในการเดิน<br>วางแผนให้ดีเพื่อคะแนนสูงสุด</p>
+        <div style="margin-top:18px;display:flex;gap:8px;justify-content:center"><button class="btn" id="backBtn2">ก่อนหน้า</button><button class="btn" id="startBtn">เริ่มเกม</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- end overlay -->
+  <div class="overlay" id="endOverlay" style="display:none;">
+    <div class="modal">
+      <h3>เกมจบแล้ว</h3>
+      <p class="small">คะแนนรวม: <strong id="finalScore">0</strong></p>
+      <div style="margin-top:18px"><button class="btn" id="claimRewardBtn">รับรางวัล</button></div>
+    </div>
+  </div>
+
+  <!-- Audio (dummy links, replace with real assets) -->
+  <audio id="s_do" src="sounds/item-collect-Do.m4a"></audio>
+  <audio id="s_re" src="sounds/item-collect-Re.m4a"></audio>
+  <audio id="s_mi" src="sounds/item-collect-Mi.m4a"></audio>
+  <audio id="s_fa" src="sounds/item-collect-Fa.m4a"></audio>
+  <audio id="s_so" src="sounds/item-collect-So.m4a"></audio>
+  <audio id="s_la" src="sounds/item-collect-La.m4a"></audio>
+  <audio id="s_ti" src="sounds/item-collect-Ti.m4a"></audio>
+  <audio id="s_combo" src="sounds/item-collect-Do2.m4a"></audio>
+  <audio id="s_invalid" src="sounds/item-collect-Do2.m4a"></audio>
+
+  <script>
+    // Configuration
+    const ROWS = 5, COLS = 5;
+    const START_MOVES = 30;
+    const TILE_TYPES = 5;
+    const HELP_TARGET = 20;
+    const tileImages = [
+      '/images/1.png', // replace with real image URLs
+      '/images/2.png',
+      '/images/3.png',
+      '/images/4.png',
+      '/images/5.png'
+
+    ];
+
+
+    // helper images (matching types)
+    const helperImgs = [
+      '/images/heal.png',
+      '/images/lion.png',
+      '/images/xbomb.png',
+      '/images/bomb.png'
+    ];
+    const helperSounds = ['sounds/h1.wav','sounds/h2.wav','sounds/h3.wav','sounds/h4.wav'];
+
+    // state
+    let board = [];// 2D array of {type, el}
+    let score = 0;
+    let moves = START_MOVES;
+    let selected = null;
+    let helperProgress = [0,0,0,0];
+    let lastSwapPos = null; // {r,c}
+    let lastRemovalWasHelper = false; // controls slower animation for helper removals
+    let idleTimer = null;
+
+    // audio sequence for combos
+    const comboOrder = ['s_do','s_re','s_mi','s_fa','s_so','s_la','s_ti','s_do'];
+
+    // DOM
+    const boardEl = document.getElementById('board');
+    const scoreEl = document.getElementById('score');
+    const movesEl = document.getElementById('moves');
+    const startOverlay = document.getElementById('startOverlay');
+    const endOverlay = document.getElementById('endOverlay');
+    const startBtn = document.getElementById('startBtn');
+    const centerActivate = document.getElementById('centerActivate');
+    const centerActivateImg = document.getElementById('centerActivateImg');
+    const claimRewardBtn = document.getElementById('claimRewardBtn');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = (urlParams.get('u') || sessionStorage.getItem('userId') || '').trim();
+    if(userId) sessionStorage.setItem('userId', userId);
+
+    // create UI for helpers (desktop: 2 left + 2 right, mobile: all 4 in one row)
+    const helperNames = ['เล่นต่อ5ครั้ง', 'สิงโต', 'ระเบิด X', 'ระเบิดกว้าง'];
+    function createHelpers(){
+      const left = document.getElementById('left-helpers');
+      const right = document.getElementById('right-helpers');
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      left.innerHTML = '';
+      right.innerHTML = '';
+      for(let i=0;i<4;i++){
+        const col = document.createElement('div');
+        col.className = 'helper';
+        col.id = 'helper-'+i;
+        col.innerHTML = `<img src="${helperImgs[i]}" alt="${helperNames[i]}"><div class="small">${helperNames[i]}</div><div class="progress"><div style="width:0%"></div></div>`;
+        if(isMobile){
+          left.appendChild(col);
+        } else {
+          if(i<2) left.appendChild(col); else right.appendChild(col);
+        }
+      }
+    }
+
+    function updateHelpers(){
+      for(let i=0;i<4;i++){
+        const el = document.querySelector('#helper-'+i+' .progress > div');
+        const w = Math.min(100, (helperProgress[i]/HELP_TARGET)*100);
+        el.style.width = w+'%';
+      }
+    }
+
+    // Board helpers
+    function makeEmptyBoard(){
+      board = [];
+      for(let r=0;r<ROWS;r++){
+        board[r]=[];
+        for(let c=0;c<COLS;c++){
+          board[r][c] = {type:randType(), el:null};
+        }
+      }
+    }
+
+    function randType(){
+      return Math.floor(Math.random()*TILE_TYPES);
+    }
+
+    function renderBoard(){
+      boardEl.innerHTML = '';
+      for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
+          const t = board[r][c];
+          const div = document.createElement('div');
+          div.className = 'tile';
+          div.dataset.r = r; div.dataset.c = c;
+          const img = document.createElement('img'); img.src = tileImages[t.type];
+          div.appendChild(img);
+          boardEl.appendChild(div);
+          t.el = div;
+          div.addEventListener('click', onTileClick);
+        }
+      }
+    }
+
+    // Check if there are any valid moves available
+    function hasValidMoves(){
+      for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
+          // Try swap right
+          if(c<COLS-1){
+            swapTiles(r,c,r,c+1);
+            if(findMatches().length>0){ swapTiles(r,c,r,c+1); return true; }
+            swapTiles(r,c,r,c+1);
+          }
+          // Try swap down
+          if(r<ROWS-1){
+            swapTiles(r,c,r+1,c);
+            if(findMatches().length>0){ swapTiles(r,c,r+1,c); return true; }
+            swapTiles(r,c,r+1,c);
+          }
+        }
+      }
+      return false;
+    }
+
+    function findMoveHint(){
+      for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
+          if(c<COLS-1){
+            swapTiles(r,c,r,c+1);
+            if(findMatches().length>0){ swapTiles(r,c,r,c+1); return [{r,c},{r:r,c:c+1}]; }
+            swapTiles(r,c,r,c+1);
+          }
+          if(r<ROWS-1){
+            swapTiles(r,c,r+1,c);
+            if(findMatches().length>0){ swapTiles(r,c,r+1,c); return [{r,c},{r:r+1,c}]; }
+            swapTiles(r,c,r+1,c);
+          }
+        }
+      }
+      return null;
+    }
+
+    function clearHints(){
+      const hintTiles = document.querySelectorAll('.tile.hint');
+      hintTiles.forEach(t => t.classList.remove('hint'));
+    }
+
+    function showIdleHint(){
+      clearHints();
+      const hint = findMoveHint();
+      if(!hint) return;
+      hint.forEach(pos => {
+        const el = board[pos.r][pos.c].el;
+        if(el) el.classList.add('hint');
+      });
+    }
+
+    function resetIdleTimer(){
+      clearHints();
+      if(idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(()=>{
+        showIdleHint();
+      }, 10000);
+    }
+
+    // Shuffle board when deadlocked
+    async function shuffleBoard(){
+      const msg = document.createElement('div');
+      msg.className = 'deadlock-msg';
+      msg.textContent = '⚠️ ทางตัน! กำลังสลับกระดาน...';
+      document.body.appendChild(msg);
+      
+      await wait(1500);
+      msg.remove();
+      
+      // Collect all current types
+      const types = [];
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) types.push(board[r][c].type);
+      
+      // Shuffle array
+      for(let i=types.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [types[i],types[j]] = [types[j],types[i]];
+      }
+      
+      // Reassign to board
+      let idx=0;
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) board[r][c].type = types[idx++];
+      
+      // Remove any matches created by shuffle
+      removeInitialMatches();
+      renderTiles();
+      resetIdleTimer();
+    }
+
+    // ensure initial board has no matches
+    function removeInitialMatches(){
+      let changed = true;
+      while(changed){
+        changed=false;
+        const matches = findMatches();
+        if(matches.length){
+          changed=true;
+          for(const pos of matches){
+            // replace with a different type
+            board[pos.r][pos.c].type = randDifferent(board[pos.r][pos.c].type);
+          }
+        }
+      }
+    }
+    function randDifferent(exclude){
+      let t = randType();
+      while(t===exclude) t = randType();
+      return t;
+    }
+
+    // find matches (return array of positions)
+    function findMatches(){
+      const toRemove = [];
+      // horiz
+      for(let r=0;r<ROWS;r++){
+        let runType = null, runStart=0, runLen=0;
+        for(let c=0;c<=COLS;c++){
+          const type = (c<COLS)? board[r][c].type : null;
+          if(type===runType) runLen++; else {
+            if(runType!==null && runLen>=3){
+              for(let k=runStart;k<runStart+runLen;k++) toRemove.push({r, c:k});
+            }
+            runType = type; runStart = c; runLen = 1;
+          }
+        }
+      }
+      // vert
+      for(let c=0;c<COLS;c++){
+        let runType=null, runStart=0, runLen=0;
+        for(let r=0;r<=ROWS;r++){
+          const type = (r<ROWS)? board[r][c].type : null;
+          if(type===runType) runLen++; else {
+            if(runType!==null && runLen>=3){
+              for(let k=runStart;k<runStart+runLen;k++) toRemove.push({r:k, c});
+            }
+            runType=type; runStart=r; runLen=1;
+          }
+        }
+      }
+      // dedupe
+      const key = (p)=>`${p.r},${p.c}`;
+      const seen = new Set();
+      const unique=[];
+      for(const p of toRemove){ if(!seen.has(key(p))){seen.add(key(p)); unique.push(p);} }
+      return unique;
+    }
+
+    // tile click handler
+    function onTileClick(e){
+      resetIdleTimer();
+      const r = +this.dataset.r, c=+this.dataset.c;
+      if(selected && selected.r===r && selected.c===c){
+        // unselect
+        selected = null; this.classList.remove('selected');
+        return;
+      }
+      if(!selected){
+        selected={r,c}; this.classList.add('selected');
+        return;
+      }
+      // second click
+      const prev = document.querySelector('.tile.selected');
+      if(prev) prev.classList.remove('selected');
+      const dr = Math.abs(selected.r - r), dc = Math.abs(selected.c - c);
+      if((dr===1 && dc===0) || (dr===0 && dc===1)){
+        // adjacent -> attempt swap
+        doSwap(selected.r, selected.c, r, c);
+      }
+      selected=null;
+    }
+
+    function doSwap(r1,c1,r2,c2){
+      lastSwapPos = {r:r2,c:c2};
+      swapTiles(r1,c1,r2,c2);
+      renderTiles();
+      const matches = findMatches();
+      if(matches.length===0){
+        // swap back (invalid move) play invalid sound
+        setTimeout(()=>{
+          swapTiles(r1,c1,r2,c2); renderTiles(); playSound('s_invalid');
+        },220);
+        return;
+      }
+      // valid move -> consume move
+      moves--; updateMoves();
+      processMatches().then(async ()=>{
+        // after all cascades, check end
+        await checkGameEnd();
+      });
+    }
+
+    function swapTiles(r1,c1,r2,c2){
+      const tmp = board[r1][c1].type; board[r1][c1].type = board[r2][c2].type; board[r2][c2].type = tmp;
+    }
+
+    function renderTiles(){
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+        const t = board[r][c]; if(t.el) t.el.querySelector('img').src = tileImages[t.type];
+      }
+    }
+
+    // processMatches now captures pre-removal types so we can compute precise drop distances
+    async function processMatches(){
+      let comboChain = 0;
+      while(true){
+        const matches = findMatches();
+        if(matches.length===0) break;
+        comboChain++;
+        playComboSound(comboChain);
+        // capture pre-removal types for targeted drop distances
+        window._preTypesForCollapse = board.map(row=>row.map(c=>c.type));
+        // count
+        score += matches.length; updateScore();
+        // increment helper progress for each tile destroyed
+        for(const m of matches){ helperProgress[ board[m.r][m.c].type ]++; }
+        updateHelpers();
+        // remove tiles (not yet collapsed) with normal removal animation
+        await animateRemovals(matches, false);
+        // collapse and refill - this will use window._preTypesForCollapse to compute per-tile drop
+        collapseAndRefill();
+        await wait(380);
+        for(let i=0;i<4;i++){ if(helperProgress[i]>=HELP_TARGET) activateHelper(i); }
+      }
+    }
+
+    function playComboSound(chainIndex){
+      const idx = Math.min(comboOrder.length-1, chainIndex-1);
+      playSound(comboOrder[idx]);
+      // if chainIndex>comboOrder.length we simply play last
+    }
+
+    function playSound(id){
+      try{ const a = document.getElementById(id); if(a){ a.currentTime=0; a.play(); }}catch(e){}
+    }
+
+    // animate removals: if isHelper true -> shake then vanish (and mark lastRemovalWasHelper true)
+    function animateRemovals(matches, isHelper){
+      return new Promise((resolve)=>{
+        lastRemovalWasHelper = !!isHelper;
+        const els = [];
+        const seen = new Set();
+        for(const m of matches){ const el = board[m.r][m.c].el; if(el && !seen.has(el)){ seen.add(el); els.push(el); } }
+        if(els.length===0){ resolve(); return; }
+        if(isHelper){ // shake first then vanish (much slower for special effect)
+          for(const el of els) el.classList.add('shake');
+          setTimeout(()=>{
+            for(const el of els){ el.classList.remove('shake'); el.classList.add('popout'); }
+            setTimeout(()=>{
+              for(const m of matches){ board[m.r][m.c].type = null; }
+              for(const el of els){ el.classList.remove('popout'); }
+              resolve();
+            },900); // increased from 700
+          },650); // increased from 500
+        } else {
+          for(const el of els){ el.classList.add('popout'); }
+          setTimeout(()=>{
+            for(const m of matches) board[m.r][m.c].type = null;
+            for(const el of els) el.classList.remove('popout');
+            resolve();
+          },200);
+        }
+      });
+    }
+
+    // collapse and refill with smooth drop animation, but only for columns/rows that were affected
+    function collapseAndRefill(){
+      const pre = window._preTypesForCollapse || board.map(row=>row.map(c=>c.type));
+      // for each column, compute stack of remaining types after removals
+      const finalCols = [];
+      for(let c=0;c<COLS;c++){
+        const stack = [];
+        for(let r=ROWS-1;r>=0;r--){ if(board[r][c].type!==null && board[r][c].type!==undefined) stack.push(board[r][c].type); }
+        finalCols[c] = stack.slice();
+      }
+
+      // apply final column values into board (fill with new random types when needed)
+      for(let c=0;c<COLS;c++){
+        for(let r=ROWS-1;r>=0;r--){
+          const idx = (ROWS-1 - r);
+          const val = finalCols[c][idx] !== undefined ? finalCols[c][idx] : randType();
+          board[r][c].type = val;
+        }
+      }
+
+      // compute tile size (in px) to determine drop distances
+      const sample = boardEl.querySelector('.tile');
+      const tileSize = sample ? sample.offsetHeight : 80;
+
+      // For each column, determine source rows of remaining tiles from pre[] before removal
+      for(let c=0;c<COLS;c++){
+        // sourceRows: indexes (row number) in pre where pre[row][c] was NOT null
+        const sourceRows = [];
+        for(let r=0;r<ROWS;r++){ if(pre[r] && pre[r][c]!==null && pre[r][c]!==undefined) sourceRows.push(r); }
+        // We'll map from bottom: for final rows bottom-up, assign sourceRow = sourceRows[sourceIdx]
+        let sourceIdx = 0;
+        for(let r=ROWS-1;r>=0;r--){
+          const finalType = board[r][c].type;
+          // determine if this finalType originated from an existing source row or is newly generated
+          const originRow = (sourceIdx < sourceRows.length) ? sourceRows[ sourceIdx ] : -1; // -1 => new tile from above
+          sourceIdx++;
+          const el = board[r][c].el;
+          if(!el) continue;
+          // If originRow === -1, we'll make it drop from above the board (bigger distance)
+          // If originRow > r then it actually fell downward -> animate. If originRow == r -> no move
+          let distanceRows;
+          if(originRow === -1) distanceRows = ROWS - r + 1; else distanceRows = originRow - r;
+          if(distanceRows > 0){
+            const fallDistance = distanceRows * tileSize;
+            // set starting transform to negative fallDistance (above) so it appears to drop into place
+            el.style.transition = 'none';
+            el.style.transform = `translateY(-${fallDistance}px)`;
+            el.style.opacity = '0';
+            // schedule animation; slower if lastRemovalWasHelper
+            const dropDur = lastRemovalWasHelper ? 850 : 420;
+            const opacityDur = lastRemovalWasHelper ? 520 : 260;
+            requestAnimationFrame(()=>{
+              requestAnimationFrame(()=>{
+                el.style.transition = `transform ${dropDur}ms cubic-bezier(.22,.9,.3,1),opacity ${opacityDur}ms`;
+                el.style.transform = 'translateY(0)';
+                el.style.opacity = '1';
+                // cleanup
+                setTimeout(()=>{ el.style.transition=''; el.style.transform=''; el.style.opacity=''; }, dropDur + 40);
+              });
+            });
+          } else {
+            // no vertical move -> ensure it's visible and reset
+            el.style.transition=''; el.style.transform=''; el.style.opacity='';
+          }
+        }
+      }
+
+      // update tile images
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+        const t = board[r][c]; if(t.el) t.el.querySelector('img').src = tileImages[t.type];
+      }
+
+      // reset helper flag
+      lastRemovalWasHelper = false;
+      // clear pre buffer
+      window._preTypesForCollapse = null;
+    }
+
+    function wait(ms){ return new Promise(res=>setTimeout(res,ms)); }
+
+    function updateScore(){ scoreEl.textContent = score; }
+    function updateMoves(){ movesEl.textContent = moves; }
+
+    async function checkGameEnd(){
+      // Check for deadlock first
+      if(!hasValidMoves()){
+        await shuffleBoard();
+        return;
+      }
+      
+      if(moves<=0){ // show end overlay
+        await saveScore();
+        document.getElementById('finalScore').textContent = score;
+        endOverlay.style.display = 'flex';
+      }
+    }
+
+    async function saveScore(){
+      if(!userId) return;
+      try{
+        await fetch('/api/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, score })
+        });
+      }catch(e){}
+    }
+
+    // helper activation
+    function activateHelper(i){
+      helperProgress[i] = 0; updateHelpers();
+      // show center popup
+      centerActivateImg.src = helperImgs[i];
+      centerActivate.classList.add('show');
+      playExternalSound(helperSounds[i]);
+      setTimeout(()=> centerActivate.classList.remove('show'),900);
+      // apply effect
+      switch(i){
+        case 0: // +5 moves
+          moves +=5; updateMoves(); showMoveBoost(); break;
+        case 1: // destroy all tiles of this type
+          // capture pre state
+          window._preTypesForCollapse = board.map(row=>row.map(c=>c.type));
+          destroyAllOfType(i); break;
+        case 2: // X cross blast around lastSwapPos
+          window._preTypesForCollapse = board.map(row=>row.map(c=>c.type));
+          if(lastSwapPos) blastX(lastSwapPos.r, lastSwapPos.c); else blastX(2,2); break;
+        case 3: // 3x3 around lastSwapPos
+          window._preTypesForCollapse = board.map(row=>row.map(c=>c.type));
+          if(lastSwapPos) blast3x3(lastSwapPos.r, lastSwapPos.c); else blast3x3(2,2); break;
+      }
+    }
+
+    function playExternalSound(src){
+      const a = new Audio(src); a.play().catch(()=>{});
+    }
+
+    function showMoveBoost(){
+      const movesStat = movesEl.parentElement;
+      if(!movesStat) return;
+      const boost = document.createElement('div');
+      boost.className = 'move-boost';
+      boost.textContent = '+5';
+      movesStat.style.position = 'relative';
+      movesStat.appendChild(boost);
+      setTimeout(()=> boost.remove(), 950);
+    }
+
+    // Draw red lines connecting tiles for helper effects
+    function drawHelperLines(positions){
+      const lines = [];
+      const boardRect = boardEl.getBoundingClientRect();
+      
+      for(let i=0;i<positions.length-1;i++){
+        const from = positions[i];
+        const to = positions[i+1];
+        const fromEl = board[from.r][from.c].el;
+        const toEl = board[to.r][to.c].el;
+        if(!fromEl || !toEl) continue;
+        
+        const fromRect = fromEl.getBoundingClientRect();
+        const toRect = toEl.getBoundingClientRect();
+        
+        const x1 = fromRect.left + fromRect.width/2 - boardRect.left;
+        const y1 = fromRect.top + fromRect.height/2 - boardRect.top;
+        const x2 = toRect.left + toRect.width/2 - boardRect.left;
+        const y2 = toRect.top + toRect.height/2 - boardRect.top;
+        
+        const length = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+        const angle = Math.atan2(y2-y1, x2-x1) * 180 / Math.PI;
+        
+        const line = document.createElement('div');
+        line.className = 'helper-line';
+        line.style.width = length + 'px';
+        line.style.left = x1 + 'px';
+        line.style.top = y1 + 'px';
+        line.style.transform = `rotate(${angle}deg)`;
+        boardEl.appendChild(line);
+        lines.push(line);
+      }
+      
+      // Fade out and remove lines
+      setTimeout(()=>{
+        lines.forEach(l => l.classList.add('fade'));
+        setTimeout(()=> lines.forEach(l => l.remove()), 300);
+      }, 800);
+    }
+
+    async function destroyAllOfType(type){
+      const removed=[];
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(board[r][c].type===type){ removed.push({r,c}); }
+      if(removed.length){
+        drawHelperLines(removed);
+        await wait(300);
+        await animateRemovals(removed, true);
+        collapseAndRefill();
+        await wait(650);
+        processMatches();
+      }
+    }
+
+    async function blastX(r,c){
+      const removed=[{r,c}];
+      const deltas=[[-1,-1],[1,1],[-1,1],[1,-1],[-2,-2],[2,2],[-2,2],[2,-2]];
+      for(const d of deltas){ const rr=r+d[0], cc=c+d[1]; if(rr>=0 && rr<ROWS && cc>=0 && cc<COLS) removed.push({r:rr,c:cc}); }
+      drawHelperLines(removed);
+      await wait(300);
+      await animateRemovals(removed, true);
+      collapseAndRefill();
+      await wait(650);
+      processMatches();
+    }
+
+    async function blast3x3(r,c){
+      const removed=[];
+      for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){ const rr=r+dr, cc=c+dc; if(rr>=0 && rr<ROWS && cc>=0 && cc<COLS) removed.push({r:rr,c:cc}); }
+      drawHelperLines(removed);
+      await wait(300);
+      await animateRemovals(removed, true);
+      collapseAndRefill();
+      await wait(650);
+      processMatches();
+    }
+
+    // tutorial navigation
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.tutorial-slide');
+    document.getElementById('nextBtn1').addEventListener('click', ()=>{
+      slides[0].style.display='none';
+      slides[1].style.display='block';
+      currentSlide=1;
+    });
+    document.getElementById('backBtn1').addEventListener('click', ()=>{
+      slides[1].style.display='none';
+      slides[0].style.display='block';
+      currentSlide=0;
+    });
+    document.getElementById('nextBtn2').addEventListener('click', ()=>{
+      slides[1].style.display='none';
+      slides[2].style.display='block';
+      currentSlide=2;
+    });
+    document.getElementById('backBtn2').addEventListener('click', ()=>{
+      slides[2].style.display='none';
+      slides[1].style.display='block';
+      currentSlide=1;
+    });
+
+    // start and claim reward
+    startBtn.addEventListener('click', ()=>{ startOverlay.style.display='none'; startGame(); });
+    claimRewardBtn.addEventListener('click', ()=>{ 
+      sessionStorage.setItem('gameScore', score);
+      const nextUrl = userId ? `redenvelope.html?u=${encodeURIComponent(userId)}` : 'redenvelope.html';
+      window.location.href = nextUrl;
+    });
+
+    function startGame(){
+      score=0; moves=START_MOVES; helperProgress=[0,0,0,0]; selected=null; lastSwapPos=null; lastRemovalWasHelper=false; window._preTypesForCollapse=null;
+      makeEmptyBoard(); removeInitialMatches(); renderBoard(); createHelpers(); updateScore(); updateMoves(); updateHelpers(); resetIdleTimer();
+    }
+
+    // initial load
+    window.addEventListener('load', ()=>{
+      createHelpers(); updateHelpers(); updateScore(); updateMoves(); resetIdleTimer();
+      window.addEventListener('resize', ()=>{ createHelpers(); updateHelpers(); });
+      // attach click to centerActivate to dismiss early
+      centerActivate.addEventListener('click', ()=> centerActivate.classList.remove('show'));
+    });
+
+    // utility: find neighbor matches? (not needed now)
+  </script>
+</body>
+</html>

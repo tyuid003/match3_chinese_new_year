@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>กรอกข้อมูลรับรางวัล - ตรุษจีน</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c30000 0%, #8b0000 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background-image: 
+        radial-gradient(circle at 20% 30%, rgba(255,215,0,0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(255,215,0,0.1) 0%, transparent 50%);
+    }
+    .container {
+      background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      animation: slideUp 0.5s ease;
+    }
+    
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .header h1 {
+      color: #c30000;
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    .header p {
+      color: #666;
+      font-size: 1rem;
+    }
+    
+    .prize-summary {
+      background: linear-gradient(135deg, #ffe8e8 0%, #fff 100%);
+      border: 2px solid #ffd700;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    .prize-summary h3 {
+      color: #c30000;
+      font-size: 1.3rem;
+      margin-bottom: 0.5rem;
+    }
+    .prize-summary p {
+      color: #555;
+      font-size: 0.95rem;
+    }
+    
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    .form-group label {
+      display: block;
+      color: #333;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+    .form-group label .required {
+      color: #c30000;
+    }
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #c30000;
+      box-shadow: 0 0 0 3px rgba(195,0,0,0.1);
+    }
+    .form-group textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .btn {
+      flex: 1;
+      padding: 14px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(90deg, #c30000, #8b0000);
+      color: white;
+      box-shadow: 0 4px 12px rgba(195,0,0,0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(195,0,0,0.5);
+    }
+    .btn-secondary {
+      background: #fff;
+      color: #c30000;
+      border: 2px solid #c30000;
+    }
+    .btn-secondary:hover {
+      background: #fff5f5;
+      transform: translateY(-2px);
+    }
+    
+    .success-message {
+      display: none;
+      background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      margin-top: 1rem;
+      animation: slideUp 0.4s ease;
+    }
+    .success-message.show {
+      display: block;
+    }
+    .success-message h3 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        padding: 30px 20px;
+      }
+      .header h1 {
+        font-size: 1.6rem;
+      }
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+      .actions {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎁 กรอกข้อมูลรับรางวัล</h1>
+      <p>กรุณากรอกข้อมูลให้ครบถ้วนเพื่อรับของรางวัล</p>
+    </div>
+    
+    <div class="prize-summary">
+      <h3 id="prizeName">รางวัลของคุณ</h3>
+      <p id="prizeDesc">รายละเอียดรางวัล</p>
+    </div>
+    
+    <form id="addressForm">
+      <div class="form-row">
+        <div class="form-group">
+          <label>ชื่อ <span class="required">*</span></label>
+          <input type="text" id="firstName" required placeholder="ชื่อ">
+        </div>
+        <div class="form-group">
+          <label>นามสกุล <span class="required">*</span></label>
+          <input type="text" id="lastName" required placeholder="นามสกุล">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label>เบอร์โทรศัพท์ <span class="required">*</span></label>
+        <input type="tel" id="phone" required placeholder="0xx-xxx-xxxx" pattern="[0-9]{9,10}">
+      </div>
+      
+      <div class="form-group">
+        <label>ที่อยู่ <span class="required">*</span></label>
+        <textarea id="address" required placeholder="บ้านเลขที่ ซอย ถนน"></textarea>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>แขวง/ตำบล <span class="required">*</span></label>
+          <input type="text" id="subdistrict" required placeholder="แขวง/ตำบล">
+        </div>
+        <div class="form-group">
+          <label>เขต/อำเภอ <span class="required">*</span></label>
+          <input type="text" id="district" required placeholder="เขต/อำเภอ">
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>จังหวัด <span class="required">*</span></label>
+          <input type="text" id="province" required placeholder="จังหวัด">
+        </div>
+        <div class="form-group">
+          <label>รหัสไปรษณีย์ <span class="required">*</span></label>
+          <input type="text" id="postalCode" required placeholder="xxxxx" pattern="[0-9]{5}">
+        </div>
+      </div>
+      
+      <div class="actions">
+        <button type="button" class="btn btn-secondary" id="playAgainBtn">🎮 เล่นอีกครั้ง</button>
+        <button type="submit" class="btn btn-primary">✓ ยืนยันข้อมูล</button>
+      </div>
+    </form>
+    
+    <div class="success-message" id="successMessage">
+      <h3>✓ บันทึกข้อมูลเรียบร้อย!</h3>
+      <p>เราจะติดต่อกลับเพื่อส่งมอบของรางวัลให้คุณเร็วๆ นี้</p>
+    </div>
+  </div>
+
+  <script>
+    // Load prize info
+    const params = new URLSearchParams(window.location.search);
+    const userId = (params.get('u') || sessionStorage.getItem('userId') || '').trim();
+    if (userId) sessionStorage.setItem('userId', userId);
+    const prizeData = JSON.parse(sessionStorage.getItem('selectedPrize') || '{}');
+    const score = sessionStorage.getItem('gameScore') || 0;
+    
+    if (prizeData.title) {
+      document.getElementById('prizeName').textContent = prizeData.title;
+      document.getElementById('prizeDesc').textContent = prizeData.description;
+    }
+    
+    // Form submission
+    const form = document.getElementById('addressForm');
+    const successMessage = document.getElementById('successMessage');
+    
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if(!userId){
+        alert('ไม่พบรหัสผู้เล่น กรุณากลับไปเริ่มเกมใหม่');
+        return;
+      }
+      
+      const formData = {
+        user_id: userId,
+        firstName: document.getElementById('firstName').value.trim(),
+        lastName: document.getElementById('lastName').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        address: document.getElementById('address').value.trim(),
+        subdistrict: document.getElementById('subdistrict').value.trim(),
+        district: document.getElementById('district').value.trim(),
+        province: document.getElementById('province').value.trim(),
+        postal_code: document.getElementById('postalCode').value.trim(),
+        score: score,
+        prize: prizeData.title || 'Unknown'
+      };
+      
+      try{
+        const res = await fetch('/api/address', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        if(!res.ok){
+          const data = await res.json().catch(()=>({}));
+          alert(data.error || 'บันทึกข้อมูลไม่สำเร็จ');
+          return;
+        }
+
+        form.style.display = 'none';
+        successMessage.classList.add('show');
+      }catch(e){
+        alert('บันทึกข้อมูลไม่สำเร็จ');
+      }
+    });
+    
+    // Play again button
+    document.getElementById('playAgainBtn').addEventListener('click', () => {
+      const nextUrl = userId ? `index.html?u=${encodeURIComponent(userId)}` : 'index.html';
+      window.location.href = nextUrl;
+    });
+  </script>
+</body>
+</html>
