@@ -6,4 +6,4 @@ pages_build_output_dir = "."
 [[d1_databases]]
 binding = "DB"
 database_name = "match3_scores"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "e4f2fd0b-b009-4895-8f5a-0240cd975d4e"
