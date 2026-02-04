@@ -218,7 +218,9 @@
 			const data = await res.json();
 			userTable.innerHTML = '';
 			(data.items || []).forEach(row => {
-				const finishIcon = row.finish ? '<button class="icon-btn finish-toggle" data-action="toggle-finish" title="คลิกเพื่อลบสถานะจบเกม">✔</button>' : '<span class="status-icon status-no">-</span>';
+				const finishIcon = row.finish 
+					? '<button class="icon-btn finish-toggle" data-action="toggle-finish" data-current="true" title="คลิกเพื่อลบสถานะจบเกม">✔</button>' 
+					: '<button class="icon-btn" data-action="toggle-finish" data-current="false" title="คลิกเพื่อเปลี่ยนเป็นจบเกม" style="background:#6b7280">-</button>';
 				const claimedIcon = row.claimed ? '<button class="icon-btn" data-action="claimed" title="ดูข้อมูล/แก้ไขที่อยู่">✔</button>' : '<span class="status-icon status-no">-</span>';
 				const tr = document.createElement('tr');
 				tr.innerHTML = `
@@ -264,13 +266,16 @@
 				const toggleFinishBtn = tr.querySelector('[data-action="toggle-finish"]');
 				if(toggleFinishBtn){
 					toggleFinishBtn.addEventListener('click', async ()=>{
-						if(!confirm('ต้องการลบสถานะ "จบเกม" ของผู้เล่นนี้หรือไม่?')) return;
+						const currentStatus = toggleFinishBtn.dataset.current === 'true';
+						const newStatus = !currentStatus;
+						const message = newStatus ? 'ต้องการเปลี่ยนสถานะเป็น "จบเกม" หรือไม่?' : 'ต้องการลบสถานะ "จบเกม" หรือไม่?';
+						if(!confirm(message)) return;
 						await fetch('/api/admin/user', {
 							method: 'PUT',
 							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ user_id: row.user_id, finish: false })
+							body: JSON.stringify({ user_id: row.user_id, finish: newStatus })
 						});
-						showToast('✔️ ลบสถานะจบเกมแล้ว');
+						showToast(newStatus ? '✔️ ตั้งสถานะจบเกมแล้ว' : '✔️ ลบสถานะจบเกมแล้ว');
 						loadUsers();
 					});
 				}
