@@ -25,12 +25,9 @@
     .board-wrap{background:rgba(212, 0, 0, 0.856);padding:18px;border-radius:14px;display:flex;flex-direction:column;align-items:center;overflow:hidden}
     /* fixed board height to hide tiles above the grid when they drop */
     .board{display:grid;grid-template-columns:repeat(5,var(--tile-size));grid-gap:6px;padding:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border-radius:12px;height:calc(5 * var(--tile-size) + 4 * 6px + 24px);box-sizing:content-box;position:relative;overflow:visible}
-    .tile{width:var(--tile-size);height:var(--tile-size);border-radius:10px;background:#ffffffb5;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 360ms cubic-bezier(.22,.9,.3,1),opacity 260ms;will-change:transform,opacity;position:relative;z-index:2;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none}
-    .tile img{width:calc(var(--tile-size) - 16px);height:calc(var(--tile-size) - 16px);pointer-events:none;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none}
+    .tile{width:var(--tile-size);height:var(--tile-size);border-radius:10px;background:#ffffffb5;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 360ms cubic-bezier(.22,.9,.3,1),opacity 260ms;will-change:transform,opacity;position:relative;z-index:2}
+    .tile img{width:calc(var(--tile-size) - 16px);height:calc(var(--tile-size) - 16px)}
     .tile.selected{outline:3px solid rgba(255,255,255,0.12);transform:scale(1.04)}
-    .tile.dragging{z-index:100;transform:scale(1.05);box-shadow:0 0 20px rgba(255,255,0,0.5)}
-    .tile.tap{animation:tapPulse 400ms ease-out}
-    @keyframes tapPulse{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
 
     /* Mobile responsive */
     @media (max-width: 768px){
@@ -214,8 +211,6 @@
     let lastSwapPos = null; // {r,c}
     let lastRemovalWasHelper = false; // controls slower animation for helper removals
     let idleTimer = null;
-    let dragState = null; // {r, c, startX, startY, isDragging} for drag-drop
-    let suppressClick = false;
 
     // audio sequence for combos
     const comboOrder = ['s_do','s_re','s_mi','s_fa','s_so','s_la','s_ti','s_do'];
@@ -288,13 +283,10 @@
           div.className = 'tile';
           div.dataset.r = r; div.dataset.c = c;
           const img = document.createElement('img'); img.src = tileImages[t.type];
-          img.draggable = false;
           div.appendChild(img);
           boardEl.appendChild(div);
           t.el = div;
           div.addEventListener('click', onTileClick);
-          div.addEventListener('mousedown', onTileDragStart, {passive: false});
-          div.addEventListener('touchstart', onTileDragStart, {passive: false});
         }
       }
     }
@@ -356,12 +348,9 @@
     function resetIdleTimer(){
       clearHints();
       if(idleTimer) clearTimeout(idleTimer);
-      // Don't start timer if dragging
-      if(!dragState){
-        idleTimer = setTimeout(()=>{
-          showIdleHint();
-        }, 10000);
-      }
+      idleTimer = setTimeout(()=>{
+        showIdleHint();
+      }, 10000);
     }
 
     // Shuffle board when deadlocked
@@ -454,30 +443,15 @@
 
     // tile click handler
     function onTileClick(e){
-      // Skip if this was a drag operation
-      if(dragState && dragState.isDragging) return;
-      if(suppressClick){
-        suppressClick = false;
-        return;
-      }
-      handleTileTap(this);
-    }
-
-    function handleTileTap(tileEl){
       resetIdleTimer();
-      const r = +tileEl.dataset.r, c=+tileEl.dataset.c;
-      tileEl.classList.remove('tap');
-      // restart animation
-      void tileEl.offsetWidth;
-      tileEl.classList.add('tap');
-
+      const r = +this.dataset.r, c=+this.dataset.c;
       if(selected && selected.r===r && selected.c===c){
         // unselect
-        selected = null; tileEl.classList.remove('selected');
+        selected = null; this.classList.remove('selected');
         return;
       }
       if(!selected){
-        selected={r,c}; tileEl.classList.add('selected');
+        selected={r,c}; this.classList.add('selected');
         return;
       }
       // second click
@@ -489,166 +463,6 @@
         doSwap(selected.r, selected.c, r, c);
       }
       selected=null;
-    }
-
-    // Drag-drop handlers
-    function onTileDragStart(e){
-      if(moves <= 0) return; // don't allow drag when game ended
-      clearHints();
-      if(idleTimer) clearTimeout(idleTimer);
-      if(e.cancelable) e.preventDefault();
-
-      const tile = e.currentTarget;
-      const r = +tile.dataset.r;
-      const c = +tile.dataset.c;
-      const x = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
-      const y = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
-      const boardStyle = getComputedStyle(boardEl);
-      const gap = parseFloat(boardStyle.columnGap || boardStyle.gap || 0) || 0;
-      const tileSize = tile.offsetWidth;
-      const maxDrag = tileSize + gap;
-
-      dragState = {
-        r, c,
-        startX: x,
-        startY: y,
-        isDragging: false,
-        axis: null,
-        dir: null,
-        maxDrag,
-        neighbor: null,
-        amount: 0
-      };
-
-      document.addEventListener('mousemove', onTileDragMove);
-      document.addEventListener('mouseup', onTileDragEnd);
-      document.addEventListener('touchmove', onTileDragMove, {passive: false});
-      document.addEventListener('touchend', onTileDragEnd);
-    }
-
-    function onTileDragMove(e){
-      if(!dragState) return;
-      if(e.cancelable) e.preventDefault();
-
-      const x = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
-      const y = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
-      const deltaX = x - dragState.startX;
-      const deltaY = y - dragState.startY;
-      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-      // Start dragging if moved more than 10px
-      if(distance > 10 && !dragState.isDragging){
-        dragState.isDragging = true;
-        const tile = board[dragState.r][dragState.c].el;
-        tile.classList.add('dragging');
-        tile.style.transition = 'none';
-        const prev = document.querySelector('.tile.selected');
-        if(prev) prev.classList.remove('selected');
-        selected = null;
-      }
-
-      if(!dragState.isDragging) return;
-
-      // Choose dominant axis and clamp to one block
-      const axis = Math.abs(deltaX) >= Math.abs(deltaY) ? 'x' : 'y';
-      let amount = axis === 'x' ? deltaX : deltaY;
-      amount = Math.max(-dragState.maxDrag, Math.min(dragState.maxDrag, amount));
-
-      let dir;
-      if(axis === 'x') dir = amount >= 0 ? 'right' : 'left';
-      else dir = amount >= 0 ? 'down' : 'up';
-
-      // Determine neighbor based on direction
-      const nr = dir === 'down' ? dragState.r + 1 : dir === 'up' ? dragState.r - 1 : dragState.r;
-      const nc = dir === 'right' ? dragState.c + 1 : dir === 'left' ? dragState.c - 1 : dragState.c;
-      const hasNeighbor = nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS;
-      if(!hasNeighbor) amount = 0;
-
-      // Reset previous neighbor if direction changed
-      if(dragState.neighbor && (dragState.neighbor.r !== nr || dragState.neighbor.c !== nc)){
-        dragState.neighbor.el.style.transition = 'transform 120ms ease-out';
-        dragState.neighbor.el.style.transform = '';
-      }
-
-      dragState.axis = axis;
-      dragState.dir = dir;
-      dragState.amount = amount;
-      dragState.neighbor = hasNeighbor ? { r: nr, c: nc, el: board[nr][nc].el } : null;
-
-      const tile = board[dragState.r][dragState.c].el;
-      if(axis === 'x') tile.style.transform = `translate(${amount}px, 0) scale(1.05)`;
-      else tile.style.transform = `translate(0, ${amount}px) scale(1.05)`;
-
-      if(dragState.neighbor){
-        const nEl = dragState.neighbor.el;
-        nEl.style.transition = 'none';
-        if(axis === 'x') nEl.style.transform = `translate(${-amount}px, 0)`;
-        else nEl.style.transform = `translate(0, ${-amount}px)`;
-      }
-    }
-
-    function onTileDragEnd(e){
-      if(!dragState) return;
-
-      const tile = board[dragState.r][dragState.c].el;
-      const neighbor = dragState.neighbor ? dragState.neighbor.el : null;
-      const dragR = dragState.r;
-      const dragC = dragState.c;
-      const neighborR = dragState.neighbor ? dragState.neighbor.r : null;
-      const neighborC = dragState.neighbor ? dragState.neighbor.c : null;
-
-      if(dragState.isDragging){
-        const amount = dragState.amount || 0;
-        const threshold = dragState.maxDrag * 0.4;
-        const shouldSwap = Math.abs(amount) >= threshold && dragState.neighbor;
-
-        tile.style.transition = 'transform 160ms ease-out';
-        if(neighbor) neighbor.style.transition = 'transform 160ms ease-out';
-
-        if(shouldSwap){
-          // animate to full swap
-          if(dragState.axis === 'x'){
-            tile.style.transform = `translate(${Math.sign(amount) * dragState.maxDrag}px, 0) scale(1.05)`;
-            neighbor.style.transform = `translate(${-Math.sign(amount) * dragState.maxDrag}px, 0)`;
-          } else {
-            tile.style.transform = `translate(0, ${Math.sign(amount) * dragState.maxDrag}px) scale(1.05)`;
-            neighbor.style.transform = `translate(0, ${-Math.sign(amount) * dragState.maxDrag}px)`;
-          }
-        } else {
-          // snap back
-          tile.style.transform = 'translate(0, 0) scale(1)';
-          if(neighbor) neighbor.style.transform = 'translate(0, 0)';
-        }
-
-        // Clean up dragState immediately
-        dragState = null;
-
-        setTimeout(() => {
-          tile.style.transition = '';
-          tile.style.transform = '';
-          tile.classList.remove('dragging');
-          if(neighbor){
-            neighbor.style.transition = '';
-            neighbor.style.transform = '';
-          }
-
-          if(shouldSwap){
-            doSwap(dragR, dragC, neighborR, neighborC);
-          }
-        }, 170);
-      } else {
-        // Was just a click - handle as normal click
-        suppressClick = true;
-        handleTileTap(tile);
-        dragState = null;
-      }
-
-      resetIdleTimer();
-
-      document.removeEventListener('mousemove', onTileDragMove);
-      document.removeEventListener('mouseup', onTileDragEnd);
-      document.removeEventListener('touchmove', onTileDragMove);
-      document.removeEventListener('touchend', onTileDragEnd);
     }
 
     function doSwap(r1,c1,r2,c2){

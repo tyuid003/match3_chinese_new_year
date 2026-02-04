@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เปิดซองอังเปา - ตรุษจีน</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #c30000 0%, #8b0000 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background:linear-gradient(180deg,#280707 0%, #2a0707 100%);background-image : url("/images/bg.jpg");background-size: cover;background-position: center;background-repeat: no-repeat;color:var(--text);display:flex;align-items:center;justify-content:center;overflow:hidden
+
+
+    }
+    .container {
+      max-width: 900px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      color: #880000;
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .score-display {
+      color: #fff;
+      font-size: 1.2rem;
+      margin-bottom: 2rem;
+      background: rgba(0,0,0,0.2);
+      padding: 12px 24px;
+      border-radius: 8px;
+      display: inline-block;
+    }
+    .envelopes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 30px;
+      margin-bottom: 2rem;
+    }
+    .envelope {
+      background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%);
+      border: 3px solid #ffd700;
+      border-radius: 12px;
+      padding: 40px 20px;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .envelope:hover {
+      transform: translateY(-10px) scale(1.05);
+      box-shadow: 0 10px 30px rgba(255,215,0,0.4);
+    }
+    .envelope.opened {
+      opacity: 0.5;
+      pointer-events: none;
+      transform: scale(0.95);
+    }
+    .envelope-icon {
+      font-size: 5rem;
+      margin-bottom: 1rem;
+    }
+    .envelope-text {
+      color: #ffd700;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+    
+    /* Prize popup */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.3s ease;
+    }
+    .overlay.show {
+      display: flex;
+    }
+    .prize-modal {
+      background: linear-gradient(135deg, #fff 0%, #ffe8e8 100%);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      animation: popIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+    .prize-image {
+      width: 200px;
+      height: 200px;
+      object-fit: contain;
+      margin-bottom: 20px;
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+    }
+    .prize-modal h2 {
+      color: #c30000;
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    .prize-modal p {
+      color: #333;
+      font-size: 1rem;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+    .btn {
+      background: linear-gradient(90deg, #c30000, #8b0000);
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      font-size: 1.1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 4px 12px rgba(195,0,0,0.3);
+    }
+    .btn-secondary {
+      background: #fff;
+      color: #c30000;
+      border: 2px solid #c30000;
+      box-shadow: none;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(195,0,0,0.5);
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes popIn {
+      from { 
+        transform: scale(0.5);
+        opacity: 0;
+      }
+      to { 
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 1.5rem;
+      }
+      .envelopes {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      .prize-modal {
+        padding: 30px 20px;
+      }
+      .prize-modal h2 {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧧 เลือกซองอังเปาของคุณ 🧧</h1>
+    <div class="score-display">คะแนน: <strong id="scoreDisplay">0</strong></div>
+    
+    <div class="envelopes">
+      <div class="envelope" data-envelope="1">
+        <div class="envelope-icon">
+          <svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="M3 7l9 6 9-6" />
+            <path d="M7 15h10" />
+          </svg>
+        </div>
+        <div class="envelope-text">ซองที่ 1</div>
+      </div>
+      <div class="envelope" data-envelope="2">
+        <div class="envelope-icon">
+          <svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="M3 7l9 6 9-6" />
+            <path d="M7 15h10" />
+          </svg>
+        </div>
+        <div class="envelope-text">ซองที่ 2</div>
+      </div>
+      <div class="envelope" data-envelope="3">
+        <div class="envelope-icon">
+          <svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="M3 7l9 6 9-6" />
+            <path d="M7 15h10" />
+          </svg>
+        </div>
+        <div class="envelope-text">ซองที่ 3</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prize popup -->
+  <div class="overlay" id="prizeOverlay">
+    <div class="prize-modal">
+      <img id="prizeImage" src="" alt="รางวัล" class="prize-image">
+      <h2 id="prizeTitle">🎉 ยินดีด้วย! 🎉</h2>
+      <p id="prizeDescription">คุณได้รับรางวัลพิเศษ!</p>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="btn" id="claimBtn">รับรางวัล</button>
+        <button class="btn btn-secondary" id="playAgainBtn" style="display:none">เล่นอีกครั้ง</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Get user_id and score
+    const params = new URLSearchParams(window.location.search);
+    const userId = (params.get('u') || sessionStorage.getItem('userId') || '').trim();
+    if (userId) sessionStorage.setItem('userId', userId);
+    const score = sessionStorage.getItem('gameScore') || 0;
+    document.getElementById('scoreDisplay').textContent = score;
+
+    // Prize data - can be customized
+    const prizes = [
+      {
+        title: 'ได้รับกำไลปี่เซี๊ยะมงคล📿',
+        description: 'โปรดระบุที่อยู่จัดส่งเพื่อรับของรางวัล',
+        image: '/images/reward.webp'      },
+      {
+        title: 'ได้รับกำไลปี่เซี๊ยะมงคล📿',
+        description: 'โปรดระบุที่อยู่จัดส่งเพื่อรับของรางวัล',
+        image: '/images/reward.webp'      },
+      {
+        title: 'ได้รับกำไลปี่เซี๊ยะมงคล📿',
+        description: 'โปรดระบุที่อยู่จัดส่งเพื่อรับของรางวัล',
+        image: '/images/reward.webp'
+      }
+    ];
+
+    // Randomly select one prize (can be changed to score-based logic)
+    const selectedPrizeIndex = Math.floor(Math.random() * prizes.length);
+    const prize = prizes[selectedPrizeIndex];
+
+    // Store prize for later use
+    sessionStorage.setItem('selectedPrize', JSON.stringify(prize));
+
+    // Handle envelope click
+    const envelopes = document.querySelectorAll('.envelope');
+    const overlay = document.getElementById('prizeOverlay');
+    const prizeImage = document.getElementById('prizeImage');
+    const prizeTitle = document.getElementById('prizeTitle');
+    const prizeDescription = document.getElementById('prizeDescription');
+    const claimBtn = document.getElementById('claimBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+
+    const openedKey = userId ? `openedEnvelope_${userId}` : 'openedEnvelope';
+    let hasOpened = localStorage.getItem(openedKey) === '1';
+
+    async function checkEligibility(){
+      if(!userId){
+        showInfo('ไม่พบรหัสผู้เล่น', 'กรุณาใช้ลิงก์จากแอดมินเพื่อเล่นเกม', true);
+        return false;
+      }
+      try{
+        const res = await fetch(`/api/user?u=${encodeURIComponent(userId)}`);
+        if(!res.ok){
+          showInfo('ไม่พบผู้ใช้', 'กรุณาตรวจสอบลิงก์ของคุณ', true);
+          return false;
+        }
+        const data = await res.json();
+        if(!data.finish){
+          showInfo('ยังเล่นเกมไม่จบ', 'กรุณากลับไปเล่นเกมให้จบก่อน', true);
+          return false;
+        }
+        if(data.claimed){
+          showClaimInfo('คุณรับรางวัลแล้ว', 'คุณสามารถกดเพื่อกรอกข้อมูลจัดส่งได้ทันที');
+          return false;
+        }
+        return true;
+      }catch(e){
+        showInfo('เกิดข้อผิดพลาด', 'โปรดลองใหม่อีกครั้ง', true);
+        return false;
+      }
+    }
+
+    function showInfo(title, message, showPlayAgain){
+      prizeImage.src = '/images/reward.webp';
+      prizeTitle.textContent = title;
+      prizeDescription.textContent = message;
+      claimBtn.style.display = 'none';
+      claimBtn.textContent = 'รับรางวัล';
+      playAgainBtn.style.display = showPlayAgain ? 'inline-block' : 'none';
+      overlay.classList.add('show');
+    }
+
+    function showClaimInfo(title, message){
+      prizeImage.src = '/images/reward.webp';
+      prizeTitle.textContent = title;
+      prizeDescription.textContent = message;
+      claimBtn.textContent = 'กรอกข้อมูลรับรางวัล';
+      claimBtn.style.display = 'inline-block';
+      playAgainBtn.style.display = 'none';
+      overlay.classList.add('show');
+    }
+
+    envelopes.forEach(env => {
+      env.addEventListener('click', async function() {
+        if (hasOpened) return;
+        const eligible = await checkEligibility();
+        if(!eligible) return;
+
+        hasOpened = true;
+        localStorage.setItem(openedKey, '1');
+
+        // Mark all as opened
+        envelopes.forEach(e => e.classList.add('opened'));
+
+        // Show prize
+        prizeImage.src = prize.image;
+        prizeTitle.textContent = `🎉 ${prize.title} 🎉`;
+        prizeDescription.textContent = prize.description;
+        claimBtn.style.display = 'inline-block';
+        playAgainBtn.style.display = 'none';
+        
+        overlay.classList.add('show');
+      });
+    });
+
+    async function preloadClaimedStatus(){
+      if(!userId) return;
+      if(hasOpened){
+        showClaimInfo('คุณเปิดซองแล้ว', 'กรุณากดเพื่อกรอกข้อมูลรับรางวัล');
+        envelopes.forEach(e => e.classList.add('opened'));
+        return;
+      }
+      try{
+        const res = await fetch(`/api/user?u=${encodeURIComponent(userId)}`);
+        if(!res.ok) return;
+        const data = await res.json();
+        if(data.claimed){
+          hasOpened = true;
+          localStorage.setItem(openedKey, '1');
+          showClaimInfo('คุณรับรางวัลแล้ว', 'กรุณากดเพื่อกรอกข้อมูลจัดส่ง');
+          envelopes.forEach(e => e.classList.add('opened'));
+        }
+      }catch(e){}
+    }
+
+    // Claim button
+    claimBtn.addEventListener('click', () => {
+      const nextUrl = userId ? `address.html?u=${encodeURIComponent(userId)}` : 'address.html';
+      window.location.href = nextUrl;
+    });
+
+    playAgainBtn.addEventListener('click', () => {
+      const nextUrl = userId ? `index.html?u=${encodeURIComponent(userId)}` : 'index.html';
+      window.location.href = nextUrl;
+    });
+
+    preloadClaimedStatus();
+  </script>
+</body>
+</html>
