@@ -7,6 +7,7 @@ export async function onRequestPut({ request, env }) {
     const phone = body.phone !== undefined ? String(body.phone).trim() : null;
     const score = body.score !== undefined ? Number(body.score) : null;
     const finish = body.finish !== undefined ? (body.finish ? 1 : 0) : null;
+    const claimed = body.claimed !== undefined ? (body.claimed ? 1 : 0) : null;
     const address = body.address !== undefined ? String(body.address).trim() : null;
     const subdistrict = body.subdistrict !== undefined ? String(body.subdistrict).trim() : null;
     const district = body.district !== undefined ? String(body.district).trim() : null;
@@ -27,6 +28,7 @@ export async function onRequestPut({ request, env }) {
     if (phone !== null) { fields.push('phone = ?'); values.push(phone); }
     if (score !== null && Number.isFinite(score)) { fields.push('score = ?'); values.push(Math.floor(score)); }
     if (finish !== null) { fields.push('finish = ?'); values.push(finish); }
+    if (claimed !== null) { fields.push('claimed = ?'); values.push(claimed); }
     if (address !== null) { fields.push('address = ?'); values.push(address); }
     if (subdistrict !== null) { fields.push('subdistrict = ?'); values.push(subdistrict); }
     if (district !== null) { fields.push('district = ?'); values.push(district); }
