@@ -53,7 +53,7 @@
       .board-wrap{order:2}
       .board{grid-gap:4px;padding:8px;height:calc(5 * var(--tile-size) + 4 * 4px + 16px)}
       .footer{text-align:center;font-size:12px;padding:8px}
-      .small {display: none ;}
+   
     }
 
     /* Red connection lines for helper effects */
@@ -103,7 +103,7 @@
     <header>
       <div>
         <h2 style="margin:0">เกมจับคู่มงคล</h2>
-        <p class="small">จับคู่ 3 ตัวขึ้นไปเพื่อทำลายและรับคะแนน</p>
+
       </div>
       <div class="stats">
         <div class="stat"><h4>Score (tiles destroyed)</h4><p id="score">0</p></div>
@@ -216,6 +216,7 @@
     let idleTimer = null;
     let dragState = null; // {r, c, startX, startY, isDragging} for drag-drop
     let suppressClick = false;
+    let preloadedImages = {}; // Cache for preloaded images
 
     // audio sequence for combos
     const comboOrder = ['s_do','s_re','s_mi','s_fa','s_so','s_la','s_ti','s_do'];
@@ -277,6 +278,28 @@
 
     function randType(){
       return Math.floor(Math.random()*TILE_TYPES);
+    }
+
+    // Preload all tile images
+    function preloadTileImages(){
+      return new Promise((resolve)=>{
+        let loadCount = 0;
+        let totalCount = tileImages.length;
+        
+        tileImages.forEach((src, idx) => {
+          const img = new Image();
+          img.onload = () => {
+            preloadedImages[idx] = src;
+            loadCount++;
+            if(loadCount === totalCount) resolve();
+          };
+          img.onerror = () => {
+            loadCount++;
+            if(loadCount === totalCount) resolve();
+          };
+          img.src = src;
+        });
+      });
     }
 
     function renderBoard(){
@@ -677,7 +700,13 @@
 
     function renderTiles(){
       for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
-        const t = board[r][c]; if(t.el) t.el.querySelector('img').src = tileImages[t.type];
+        const t = board[r][c]; 
+        if(t.el) {
+          const img = t.el.querySelector('img');
+          // Use preloaded image src (already cached by browser)
+          const src = preloadedImages[t.type] || tileImages[t.type];
+          img.src = src;
+        }
       }
     }
 
@@ -1024,7 +1053,10 @@
     }
 
     // initial load
-    window.addEventListener('load', ()=>{
+    window.addEventListener('load', async ()=>{
+      // Preload all tile images before anything else
+      await preloadTileImages();
+      
       createHelpers(); updateHelpers(); updateScore(); updateMoves(); resetIdleTimer();
       window.addEventListener('resize', ()=>{ createHelpers(); updateHelpers(); });
       // attach click to centerActivate to dismiss early
