@@ -34,6 +34,17 @@
 		.modal-item span{display:block;font-size:11px;color:#6b7280;margin-bottom:4px}
 		.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 		.mono{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+		
+		/* Toast notification */
+		.toast{position:fixed;bottom:20px;right:20px;background:#15803d;color:#fff;padding:12px 16px;border-radius:8px;font-size:14px;animation:slideIn 0.3s ease-out;z-index:1000;max-width:300px}
+		@keyframes slideIn{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+		
+		.modal-confirm{background:#fff;color:#111;padding:24px;border-radius:12px;min-width:360px;max-width:440px;width:90%;text-align:center}
+		.modal-confirm h3{color:#111;margin:0 0 12px 0;font-size:18px}
+		.modal-confirm p{color:#666;margin-bottom:20px;line-height:1.5}
+		.modal-confirm-actions{display:flex;gap:12px;justify-content:center;margin-top:24px}
+		.modal-confirm-actions .btn{padding:10px 24px}
+		
 		@media (max-width: 900px){
 			.row{grid-template-columns:1fr 1fr}
 		}
@@ -111,6 +122,17 @@
 				</div>
 			</div>
 		</div>
+
+		<div class="overlay" id="confirmDeleteOverlay">
+			<div class="modal-confirm">
+				<h3>⚠️ ยืนยันการลบ</h3>
+				<p>คุณแน่ใจว่าต้องการลบผู้เล่น <strong id="confirmDeleteUserId"></strong> หรือไม่?</p>
+				<div class="modal-confirm-actions">
+					<button class="btn-secondary btn" id="cancelDeleteBtn">ยกเลิก</button>
+					<button class="btn-danger btn" id="confirmDeleteBtn">ลบทันที</button>
+				</div>
+			</div>
+		</div>
 	</div>
 
 	<script>
@@ -121,6 +143,7 @@
 		const userTable = document.getElementById('userTable');
 		const statusMsg = document.getElementById('statusMsg');
 		const detailOverlay = document.getElementById('detailOverlay');
+		const confirmDeleteOverlay = document.getElementById('confirmDeleteOverlay');
 		const detailUserId = document.getElementById('detailUserId');
 		const detailName = document.getElementById('detailName');
 		const detailPhone = document.getElementById('detailPhone');
@@ -129,12 +152,26 @@
 		const detailDistrict = document.getElementById('detailDistrict');
 		const detailProvince = document.getElementById('detailProvince');
 		const detailPostal = document.getElementById('detailPostal');
+		const confirmDeleteUserId = document.getElementById('confirmDeleteUserId');
 
 		const baseUrl = window.location.origin;
+		let pendingDeleteUserId = null;
 
 		function setStatus(message, isError = true){
 			statusMsg.textContent = message || '';
 			statusMsg.style.color = isError ? '#b91c1c' : '#15803d';
+		}
+
+		// Show toast notification
+		function showToast(message, duration = 2000){
+			const toast = document.createElement('div');
+			toast.className = 'toast';
+			toast.textContent = message;
+			document.body.appendChild(toast);
+			setTimeout(() => {
+				toast.style.opacity = '0';
+				setTimeout(() => toast.remove(), 300);
+			}, duration);
 		}
 
 		document.getElementById('createBtn').addEventListener('click', async ()=>{
@@ -196,21 +233,20 @@
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify(payload)
 					});
+					showToast('✔️ บันทึกสำเร็จ');
 					loadUsers();
 				});
 
-				tr.querySelector('[data-action="delete"]').addEventListener('click', async ()=>{
-					await fetch('/api/admin/user', {
-						method: 'DELETE',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ user_id: row.user_id })
-					});
-					loadUsers();
+				tr.querySelector('[data-action="delete"]').addEventListener('click', ()=>{
+					pendingDeleteUserId = row.user_id;
+					confirmDeleteUserId.textContent = row.user_id;
+					confirmDeleteOverlay.classList.add('show');
 				});
 
 				tr.querySelector('[data-action="copy-link"]').addEventListener('click', async ()=>{
 					const link = `${baseUrl}/index.html?u=${encodeURIComponent(row.user_id)}`;
 					await navigator.clipboard.writeText(link);
+					showToast('✔️ คัดลอกลิงก์แล้ว');
 				});
 
 				const claimedBtn = tr.querySelector('[data-action="claimed"]');
@@ -242,6 +278,25 @@
 		document.getElementById('copyDetailBtn').addEventListener('click', async ()=>{
 			const text = `USER_ID: ${detailUserId.textContent}\nชื่อ-นามสกุล: ${detailName.textContent}\nเบอร์โทร: ${detailPhone.textContent}\nที่อยู่: ${detailAddress.textContent}\nแขวง/ตำบล: ${detailSubdistrict.textContent}\nเขต/อำเภอ: ${detailDistrict.textContent}\nจังหวัด: ${detailProvince.textContent}\nรหัสไปรษณีย์: ${detailPostal.textContent}`;
 			await navigator.clipboard.writeText(text);
+			showToast('✔️ คัดลอกข้อมูลแล้ว');
+		});
+
+		document.getElementById('cancelDeleteBtn').addEventListener('click', ()=>{
+			confirmDeleteOverlay.classList.remove('show');
+			pendingDeleteUserId = null;
+		});
+
+		document.getElementById('confirmDeleteBtn').addEventListener('click', async ()=>{
+			if(!pendingDeleteUserId) return;
+			await fetch('/api/admin/user', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ user_id: pendingDeleteUserId })
+			});
+			confirmDeleteOverlay.classList.remove('show');
+			showToast('✔️ ลบผู้เล่นแล้ว');
+			pendingDeleteUserId = null;
+			loadUsers();
 		});
 
 		loadUsers();
