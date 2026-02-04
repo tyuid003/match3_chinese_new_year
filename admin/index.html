@@ -26,6 +26,10 @@
 		.status-yes{background:#16a34a;color:#fff}
 		.status-no{background:#e5e7eb;color:#6b7280}
 		.icon-btn{border:none;background:#16a34a;color:#fff;font-weight:800;border-radius:50%;width:22px;height:22px;cursor:pointer}
+		.finish-toggle{cursor:pointer;transition:transform 0.2s}
+		.finish-toggle:hover{transform:scale(1.1)}
+		.modal input{width:100%;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:14px}
+		.modal label{display:block;font-size:12px;color:#6b7280;margin-bottom:4px;margin-top:8px}
 		.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:200}
 		.overlay.show{display:flex}
 		.modal{background:#fff;color:#111;padding:20px;border-radius:12px;min-width:320px;max-width:520px;width:90%}
@@ -105,20 +109,26 @@
 
 		<div class="overlay" id="detailOverlay">
 			<div class="modal">
-				<h3>ข้อมูลผู้รับรางวัล</h3>
+				<h3>ข้อมูลผู้รับรางวัล / แก้ไขที่อยู่</h3>
+				<input type="hidden" id="editUserId" />
+				<div style="margin-bottom:12px">
+					<label>USER_ID</label>
+					<div class="mono" id="detailUserId" style="padding:8px;background:#f3f4f6;border-radius:6px"></div>
+				</div>
 				<div class="modal-grid">
-					<div class="modal-item"><span>USER_ID</span><div class="mono" id="detailUserId"></div></div>
-					<div class="modal-item"><span>ชื่อ-นามสกุล</span><div id="detailName"></div></div>
-					<div class="modal-item"><span>เบอร์โทร</span><div id="detailPhone"></div></div>
-					<div class="modal-item"><span>ที่อยู่</span><div id="detailAddress"></div></div>
-					<div class="modal-item"><span>แขวง/ตำบล</span><div id="detailSubdistrict"></div></div>
-					<div class="modal-item"><span>เขต/อำเภอ</span><div id="detailDistrict"></div></div>
-					<div class="modal-item"><span>จังหวัด</span><div id="detailProvince"></div></div>
-					<div class="modal-item"><span>รหัสไปรษณีย์</span><div id="detailPostal"></div></div>
+					<div class="modal-item"><label>ชื่อ</label><div id="detailFirstName" style="padding:8px;background:#f3f4f6;border-radius:6px"></div></div>
+					<div class="modal-item"><label>นามสกุล</label><div id="detailLastName" style="padding:8px;background:#f3f4f6;border-radius:6px"></div></div>
+					<div class="modal-item" style="grid-column:1/-1"><label>เบอร์โทร</label><div id="detailPhone" style="padding:8px;background:#f3f4f6;border-radius:6px"></div></div>
+					<div class="modal-item" style="grid-column:1/-1"><label>ที่อยู่</label><input id="editAddress" placeholder="บ้านเลขที่ ซอย ถนน" /></div>
+					<div class="modal-item"><label>แขวง/ตำบล</label><input id="editSubdistrict" placeholder="แขวง/ตำบล" /></div>
+					<div class="modal-item"><label>เขต/อำเภอ</label><input id="editDistrict" placeholder="เขต/อำเภอ" /></div>
+					<div class="modal-item"><label>จังหวัด</label><input id="editProvince" placeholder="จังหวัด" /></div>
+					<div class="modal-item"><label>รหัสไปรษณีย์</label><input id="editPostal" placeholder="รหัสไปรษณีย์" /></div>
 				</div>
 				<div class="modal-actions">
+					<button class="btn" id="saveAddressBtn">บันทึกที่อยู่</button>
 					<button class="btn-secondary btn" id="copyDetailBtn">คัดลอกข้อมูล</button>
-					<button class="btn" id="closeDetailBtn">ปิด</button>
+					<button class="btn-secondary btn" id="closeDetailBtn">ปิด</button>
 				</div>
 			</div>
 		</div>
@@ -145,13 +155,15 @@
 		const detailOverlay = document.getElementById('detailOverlay');
 		const confirmDeleteOverlay = document.getElementById('confirmDeleteOverlay');
 		const detailUserId = document.getElementById('detailUserId');
-		const detailName = document.getElementById('detailName');
+		const detailFirstName = document.getElementById('detailFirstName');
+		const detailLastName = document.getElementById('detailLastName');
 		const detailPhone = document.getElementById('detailPhone');
-		const detailAddress = document.getElementById('detailAddress');
-		const detailSubdistrict = document.getElementById('detailSubdistrict');
-		const detailDistrict = document.getElementById('detailDistrict');
-		const detailProvince = document.getElementById('detailProvince');
-		const detailPostal = document.getElementById('detailPostal');
+		const editUserId = document.getElementById('editUserId');
+		const editAddress = document.getElementById('editAddress');
+		const editSubdistrict = document.getElementById('editSubdistrict');
+		const editDistrict = document.getElementById('editDistrict');
+		const editProvince = document.getElementById('editProvince');
+		const editPostal = document.getElementById('editPostal');
 		const confirmDeleteUserId = document.getElementById('confirmDeleteUserId');
 
 		const baseUrl = window.location.origin;
@@ -206,8 +218,8 @@
 			const data = await res.json();
 			userTable.innerHTML = '';
 			(data.items || []).forEach(row => {
-				const finishIcon = row.finish ? '<span class="status-icon status-yes">✔</span>' : '<span class="status-icon status-no">-</span>';
-				const claimedIcon = row.claimed ? '<button class="icon-btn" data-action="claimed" title="ดูข้อมูล">✔</button>' : '<span class="status-icon status-no">-</span>';
+				const finishIcon = row.finish ? '<button class="icon-btn finish-toggle" data-action="toggle-finish" title="คลิกเพื่อลบสถานะจบเกม">✔</button>' : '<span class="status-icon status-no">-</span>';
+				const claimedIcon = row.claimed ? '<button class="icon-btn" data-action="claimed" title="ดูข้อมูล/แก้ไขที่อยู่">✔</button>' : '<span class="status-icon status-no">-</span>';
 				const tr = document.createElement('tr');
 				tr.innerHTML = `
 					<td>${row.user_id}</td>
@@ -249,20 +261,33 @@
 					showToast('✔️ คัดลอกลิงก์แล้ว');
 				});
 
+				const toggleFinishBtn = tr.querySelector('[data-action="toggle-finish"]');
+				if(toggleFinishBtn){
+					toggleFinishBtn.addEventListener('click', async ()=>{
+						if(!confirm('ต้องการลบสถานะ "จบเกม" ของผู้เล่นนี้หรือไม่?')) return;
+						await fetch('/api/admin/user', {
+							method: 'PUT',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ user_id: row.user_id, finish: false })
+						});
+						showToast('✔️ ลบสถานะจบเกมแล้ว');
+						loadUsers();
+					});
+				}
+
 				const claimedBtn = tr.querySelector('[data-action="claimed"]');
 				if(claimedBtn){
 					claimedBtn.addEventListener('click', ()=>{
-						const fullAddress = [row.address, row.subdistrict, row.district, row.province, row.postal_code]
-							.filter(Boolean)
-							.join(' ');
 						detailUserId.textContent = row.user_id;
-						detailName.textContent = `${row.first_name} ${row.last_name}`.trim();
+						detailFirstName.textContent = row.first_name || '-';
+						detailLastName.textContent = row.last_name || '-';
 						detailPhone.textContent = row.phone || '-';
-						detailAddress.textContent = row.address || '-';
-						detailSubdistrict.textContent = row.subdistrict || '-';
-						detailDistrict.textContent = row.district || '-';
-						detailProvince.textContent = row.province || '-';
-						detailPostal.textContent = row.postal_code || '-';
+						editUserId.value = row.user_id;
+						editAddress.value = row.address || '';
+						editSubdistrict.value = row.subdistrict || '';
+						editDistrict.value = row.district || '';
+						editProvince.value = row.province || '';
+						editPostal.value = row.postal_code || '';
 						detailOverlay.classList.add('show');
 					});
 				}
@@ -275,8 +300,32 @@
 			detailOverlay.classList.remove('show');
 		});
 
+		document.getElementById('saveAddressBtn').addEventListener('click', async ()=>{
+			const userId = editUserId.value.trim();
+			if(!userId) return;
+			await fetch('/api/admin/user', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					user_id: userId,
+					address: editAddress.value.trim(),
+					subdistrict: editSubdistrict.value.trim(),
+					district: editDistrict.value.trim(),
+					province: editProvince.value.trim(),
+					postal_code: editPostal.value.trim()
+				})
+			});
+			showToast('✔️ บันทึกที่อยู่สำเร็จ');
+			detailOverlay.classList.remove('show');
+			loadUsers();
+		});
+
 		document.getElementById('copyDetailBtn').addEventListener('click', async ()=>{
-			const text = `USER_ID: ${detailUserId.textContent}\nชื่อ-นามสกุล: ${detailName.textContent}\nเบอร์โทร: ${detailPhone.textContent}\nที่อยู่: ${detailAddress.textContent}\nแขวง/ตำบล: ${detailSubdistrict.textContent}\nเขต/อำเภอ: ${detailDistrict.textContent}\nจังหวัด: ${detailProvince.textContent}\nรหัสไปรษณีย์: ${detailPostal.textContent}`;
+			const fullName = `${detailFirstName.textContent} ${detailLastName.textContent}`.trim();
+			const fullAddress = [editAddress.value, editSubdistrict.value, editDistrict.value, editProvince.value, editPostal.value]
+				.filter(Boolean)
+				.join(' ');
+			const text = `USER_ID: ${detailUserId.textContent}\nชื่อ-นามสกุล: ${fullName}\nเบอร์โทร: ${detailPhone.textContent}\nที่อยู่: ${fullAddress || '-'}`;
 			await navigator.clipboard.writeText(text);
 			showToast('✔️ คัดลอกข้อมูลแล้ว');
 		});
