@@ -222,11 +222,11 @@
 					? '<button class="icon-btn finish-toggle" data-action="toggle-finish" data-current="true" title="คลิกเพื่อลบสถานะจบเกม">✔</button>' 
 					: '<button class="icon-btn" data-action="toggle-finish" data-current="false" title="คลิกเพื่อเปลี่ยนเป็นจบเกม" style="background:#6b7280">-</button>';
 			let claimedIcon;
-			if (!row.claimed) {
+			if (!row.finish) {
 				claimedIcon = '<span class="status-icon status-no">-</span>';
-			} else if (row.address) {
+			} else if (row.claimed && row.address) {
 				claimedIcon = '<button class="icon-btn" data-action="claimed" title="ดูข้อมูล/แก้ไขที่อยู่">✔</button>';
-			} else {
+			} else if (row.finish) {
 				claimedIcon = '<button class="icon-btn" data-action="claimed" title="คลิกเพื่อกรอกที่อยู่" style="background:#6b7280">-</button>';
 			}
 				const tr = document.createElement('tr');
