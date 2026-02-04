@@ -282,24 +282,17 @@
 
     // Preload all tile images
     function preloadTileImages(){
-      return new Promise((resolve)=>{
-        let loadCount = 0;
-        let totalCount = tileImages.length;
-        
-        tileImages.forEach((src, idx) => {
+      return Promise.all(tileImages.map(src => {
+        return new Promise((resolve)=>{
           const img = new Image();
           img.onload = () => {
-            preloadedImages[idx] = src;
-            loadCount++;
-            if(loadCount === totalCount) resolve();
+            preloadedImages[tileImages.indexOf(src)] = src;
+            resolve();
           };
-          img.onerror = () => {
-            loadCount++;
-            if(loadCount === totalCount) resolve();
-          };
+          img.onerror = resolve; // resolve even on error (fallback will work)
           img.src = src;
         });
-      });
+      }));
     }
 
     function renderBoard(){
@@ -703,9 +696,8 @@
         const t = board[r][c]; 
         if(t.el) {
           const img = t.el.querySelector('img');
-          // Use preloaded image src (already cached by browser)
-          const src = preloadedImages[t.type] || tileImages[t.type];
-          img.src = src;
+          // Always use tileImages directly - they should be cached by browser
+          img.src = tileImages[t.type];
         }
       }
     }
@@ -1054,8 +1046,8 @@
 
     // initial load
     window.addEventListener('load', async ()=>{
-      // Preload all tile images before anything else
-      await preloadTileImages();
+      // Preload all tile images immediately (non-blocking)
+      preloadTileImages().catch(()=>{}); // don't wait, just preload in background
       
       createHelpers(); updateHelpers(); updateScore(); updateMoves(); resetIdleTimer();
       window.addEventListener('resize', ()=>{ createHelpers(); updateHelpers(); });
