@@ -484,7 +484,8 @@
         const res = await fetch(`/api/user?u=${encodeURIComponent(userId)}`);
         if (!res.ok) return;
         const data = await res.json();
-        if (data.claimed) {
+        // Only show info if claimed AND has finish status
+        if (data.claimed && data.finish) {
           hasOpened = true;
           localStorage.setItem(openedKey, '1');
           showClaimInfo('คุณรับรางวัลแล้ว', 'กรุณากดเพื่อกรอกข้อมูลจัดส่ง');
